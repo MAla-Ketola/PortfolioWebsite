@@ -5,7 +5,7 @@ const App = () => {
   return (
     <BrowserRouter>
       <div className="relative z-0 bg-primary">
-        <div className="bg-hero-pattern bg-cover bg-no-repeat bg-center">
+        <div className="bg-black">
           <Navbar />
           <Hero />
         </div>
@@ -13,10 +13,10 @@ const App = () => {
         <Experience />
         <Tech />
         <Works />
-        <Feedbacks />
+        {/*<Feedbacks />} */}
         <div className="relative z-0">
           <Contact />
-          <StarsCanvas />
+          {/*<StarsCanvas />*/}
         </div>
       </div>
     </BrowserRouter>
@@ -24,3 +24,5 @@ const App = () => {
 }
 
 export default App
+
+{/* bg-hero-pattern bg-cover bg-no-repeat bg-center */}
