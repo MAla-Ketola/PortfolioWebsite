@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 
 import { styles } from "../styles";
-import { ComputersCanvas } from "./canvas";
+import { ComputersCanvas, MysteriousDeskCanvas, TestCanvas } from "./canvas";
 import MouseTrailCanvas from "./MouseTrailCanvas";
 
 const Hero = () => {
@@ -26,7 +26,8 @@ const Hero = () => {
         </div> */}
       </div>
 
-      <ComputersCanvas />
+      {/* <Scene /> */}
+      <TestCanvas />
 
       <MouseTrailCanvas
         maxPoints={50}
@@ -47,7 +48,7 @@ const Hero = () => {
       />
 
       {/*Scroll Cue*/}
-      <div className="absolute xs:bottom-10 bottom-32 w-full flex justify-center items-center">
+{/*       <div className="absolute xs:bottom-10 bottom-32 w-full flex justify-center items-center">
         <a href="#about">
           <div className="w-[35px] h-[64px] rounded-3xl border-4 border-secondary flex justify-center items-start p-2">
             <motion.div
@@ -63,7 +64,7 @@ const Hero = () => {
             />
           </div>
         </a>
-      </div>
+      </div> */}
 
       {/* CRT scanlines overlay (now the actual last child) */}
       <div className="crt-scanlines pointer-events-none absolute inset-0 z-[5]" />
@@ -72,3 +73,7 @@ const Hero = () => {
 };
 
 export default Hero;
+
+
+
+
