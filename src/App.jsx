@@ -7,11 +7,10 @@ import {
   About,
   Contact,
   Experience,
-  /* Feedbacks, */
   Navbar,
   Tech,
   Works,
-  HEROBACKUP,
+  Hero,
 } from "./components";
 import RootMatrixBG from "./components/canvas/RootMatrixBG";
 
@@ -71,7 +70,7 @@ const App = () => {
           } ${entered ? "" : "overflow-hidden"}`}
         >
           <Navbar />
-          <HEROBACKUP
+          <Hero
             reenter3D={reenter3D}
             onEntered={() => setEntered(true)}
           />
@@ -81,28 +80,28 @@ const App = () => {
         {entered && (
           <>
             {/* Floating Back to desk button */}
-            <button
+  {/*           <button
               onClick={handleBackToDesk}
               className="fixed bottom-6 right-6 z-40 rounded-2xl bg-white/10 hover:bg-white/20 backdrop-blur px-4 py-2 text-white text-sm"
             >
               Back to desk
-            </button>
+            </button> */}
 
             {/* 3) Make sure sections don’t create opaque layers */}
-            <section id="about" className="relative z-10 w-full min-h-screen">
+            <section className="relative z-10 w-full min-h-screen">
               <About id="about" data-mx-section data-mx-speed="0.85" data-mx-density="0.95" data-mx-opacity="0.12" className="relative" />
             </section>
 
             <section className="relative z-10">
-              <Experience />
-            </section>
-
-            <section className="relative z-10">
-              <Tech />
-            </section>
-
-            <section className="relative z-10">
               <Works />
+            </section>
+
+            <section className="relative z-10">
+              {/* <Tech /> */}
+            </section>
+
+            <section className="relative z-10">
+              <Experience />
             </section>
 
             <section className="relative z-10">

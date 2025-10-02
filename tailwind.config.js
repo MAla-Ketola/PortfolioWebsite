@@ -5,8 +5,11 @@ module.exports = {
   theme: {
     extend: {
       fontFamily: {
-        karla: ["Karla", "sans-serif"],
-        playfair: ["Playfair Display", "serif"],
+        mono: [
+          '"IBM Plex Mono"',
+          "monospace",
+        ],
+        sans: ["Karla", "system-ui", "sans-serif"],
       },
       colors: {
         primary: "#000000ff",
@@ -29,4 +32,3 @@ module.exports = {
   },
   plugins: [],
 };
-
