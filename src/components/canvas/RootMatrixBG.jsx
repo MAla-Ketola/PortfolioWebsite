@@ -1,5 +1,4 @@
 // RootMatrixBG.jsx — minimal wrapper for the new 3D MatrixBG
-// RootMatrixBG.jsx — minimal wrapper for the new 3D MatrixBG
 import React from "react";
 import MatrixBG from "./MatrixBG";
 

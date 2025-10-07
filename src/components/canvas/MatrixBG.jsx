@@ -1,11 +1,6 @@
-// MatrixBG.jsx — 3D Matrix rain (optimized: shared textures, event timers, memoized math)
-// Requires:
-//   npm i @react-three/fiber @react-three/drei three
-//   npm i @react-three/postprocessing postprocessing
-
 import React, { useRef, useMemo, useLayoutEffect } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { Text, ScreenQuad } from "@react-three/drei";
+import { Text } from "@react-three/drei";
 import * as THREE from "three";
 import {
   EffectComposer,
@@ -15,10 +10,14 @@ import {
   ChromaticAberration,
   Scanline,
   Glitch,
+  DepthOfField,
 } from "@react-three/postprocessing";
 import { BlendFunction, GlitchMode } from "postprocessing";
 
-// ---------- utils ----------
+import { Suspense } from 'react';
+import { Preload, AdaptiveDpr } from '@react-three/drei';
+import Loader from "../Loader";
+
 const GLYPHS =
   "アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ".split(
     ""
@@ -102,7 +101,11 @@ export default function MatrixBG({
         gl={{ antialias: true, alpha: true }}
         onCreated={({ gl }) => gl.setClearColor("#000", 1)}
       >
+        <Suspense fallback={<Loader />}>
         <Scene density={density} speed={speed} glow={glow} />
+        <Preload all />
+      </Suspense>
+      <AdaptiveDpr pixelated />
       </Canvas>
 
       {/* Diagonal shimmer — ultra-slow sweep */}
@@ -471,7 +474,6 @@ export function MatrixStreams({
         s.chars[0] = pickNewGlyph(below);
       }
 
-      // --------- RECYCLE RULE (after last glyph clears bottom) ----------
       // Compute the *highest* possible Y of the tail's last glyph (conservative).
       // If even that is below the bottom edge, the entire stream is off-screen.
       const tailTopMostY = s.headY + (s.tailLen - 1) * baseStep;
@@ -502,7 +504,6 @@ export function MatrixStreams({
         s.nextFlicker = expInterval(flickersPerSecond);
         s.nextSparkle = expInterval(sparkleRunsPerSecond);
       }
-      // -------------------------------------------------------------------
 
       // depth factor
       const depthT = clamp01((s.z - zN) / (zF - zN));
@@ -708,7 +709,6 @@ export function MatrixStreams({
   );
 }
 
-// ---------- particles ----------
 function DigitalSparks({
   count = 1800,
   radius = 2,
@@ -749,7 +749,6 @@ function DigitalSparks({
       velocities[i] = Math.random() * 0.6 + 0.4;
     }
 
-    // Optional "instant spread": fast-forward a bit so motion looks already mixed
     if (prewarm > 0) {
       const frames = Math.floor(prewarm * 60);
       const stepPerFrame = speed * 0.01; // matches useFrame logic
@@ -831,184 +830,6 @@ function DigitalSparks({
   return <points ref={pointsRef} geometry={geom} material={mat} />;
 }
 
-// ---------- background grids ----------
-function WireframeGrids({
-  size = 40,
-  divisions = 40,
-  pulsePeriod = 12,
-  tilt = 0,
-  color = "#0bbf7a",
-  brightness = 1,
-}) {
-  const g1 = React.useRef();
-  const g2 = React.useRef();
-
-  // Build a grid as LineSegments (no diagonals)
-  const buildGridGeometry = React.useCallback((w, h, divs) => {
-    const verts = [];
-    const hw = w * 0.5,
-      hh = h * 0.5;
-
-    // vertical lines
-    for (let i = 0; i <= divs; i++) {
-      const x = -hw + (i / divs) * w;
-      verts.push(x, -hh, 0, x, hh, 0);
-    }
-    // horizontal lines
-    for (let j = 0; j <= divs; j++) {
-      const y = -hh + (j / divs) * h;
-      verts.push(-hw, y, 0, hw, y, 0);
-    }
-
-    const geom = new THREE.BufferGeometry();
-    geom.setAttribute("position", new THREE.Float32BufferAttribute(verts, 3));
-    return geom;
-  }, []);
-
-  const geom1 = React.useMemo(
-    () => buildGridGeometry(size, size, divisions),
-    [buildGridGeometry, size, divisions]
-  );
-  const geom2 = React.useMemo(
-    () => buildGridGeometry(size * 1.6, size * 1.6, divisions),
-    [buildGridGeometry, size, divisions]
-  );
-
-  // Separate materials so we can animate opacities independently
-  const mat1 = React.useMemo(
-    () =>
-      new THREE.LineBasicMaterial({
-        color,
-        transparent: true,
-        opacity: 0.08 * brightness,
-        depthWrite: false,
-      }),
-    [color, brightness]
-  );
-
-  const mat2 = React.useMemo(
-    () =>
-      new THREE.LineBasicMaterial({
-        color,
-        transparent: true,
-        opacity: 0.08 * brightness,
-        depthWrite: false,
-      }),
-    [color, brightness]
-  );
-
-  // Subtle pulse + tilt
-  useFrame((state) => {
-    const t = state.clock.getElapsedTime();
-    const phase1 = (Math.sin((t / pulsePeriod) * Math.PI * 2) + 1) / 2;
-    const phase2 =
-      (Math.sin(((t + pulsePeriod * 0.33) / pulsePeriod) * Math.PI * 2) + 1) /
-      2;
-
-    if (g1.current) {
-      g1.current.material.opacity = (0.02 + phase1 * 0.12) * brightness;
-      g1.current.rotation.x = tilt;
-    }
-    if (g2.current) {
-      g2.current.material.opacity = (0.02 + phase2 * 0.08) * brightness;
-      g2.current.rotation.x = tilt;
-    }
-  });
-
-  return (
-    <group>
-      <lineSegments
-        ref={g1}
-        geometry={geom1}
-        material={mat1}
-        position={[0, -2.2, -9]}
-      />
-      {/*       <lineSegments
-        ref={g2}
-        geometry={geom2}
-        material={mat2}
-        position={[0, -3.5, -18]}
-      /> */}
-    </group>
-  );
-}
-
-function CRTMask({
-  intensity = 0.06, // 0.03–0.12 is a nice range
-  scale = 820, // bigger = smaller dots
-  jitter = 0.0025, // tiny horizontal wiggle
-}) {
-  const uniforms = React.useMemo(
-    () => ({
-      uTime: { value: 0 },
-      uIntensity: { value: intensity },
-      uScale: { value: scale },
-      uJitter: { value: jitter },
-    }),
-    [intensity, scale, jitter]
-  );
-
-  useFrame((_, dt) => {
-    uniforms.uTime.value += dt;
-  });
-
-  return (
-    <ScreenQuad renderOrder={1000}>
-      <shaderMaterial
-        uniforms={uniforms}
-        transparent
-        depthWrite={false}
-        depthTest={false}
-        premultipliedAlpha
-        blending={THREE.MultiplyBlending} // black with alpha = darken
-        vertexShader={
-          /* glsl */ `
-          varying vec2 vUv;
-          void main() {
-            vUv = uv;
-            gl_Position = vec4(position, 1.0);
-          }
-        `
-        }
-        fragmentShader={
-          /* glsl */ `
-          precision highp float;
-          varying vec2 vUv;
-          uniform float uTime, uIntensity, uScale, uJitter;
-
-          float hash(vec2 p){
-            return fract(sin(dot(p, vec2(127.1,311.7))) * 43758.5453);
-          }
-
-          void main(){
-            // tiny time-based horizontal flutter (like CRT line drift)
-            vec2 uv = vUv;
-            uv.x += sin(uv.y * 220.0 + uTime * 12.0) * uJitter;
-
-            // shadow-mask dots (tile space)
-            vec2 cell = fract(uv * uScale) - 0.5;
-            // slightly squashed circle to avoid perfect “polka”
-            float d = length(cell * vec2(1.15, 0.9));
-
-            // dot core with soft falloff
-            float dotMask = smoothstep(0.42, 0.24, d);
-
-            // tiny per-cell twinkle to avoid looking static
-            vec2 g = floor(uv * uScale);
-            float twinkle = 0.9 + 0.1 * hash(g + vec2(uTime * 0.5, uTime * 0.7));
-
-            float a = clamp(uIntensity * dotMask * twinkle, 0.0, 1.0);
-
-            // Multiply blend expects black + alpha to darken under it
-            gl_FragColor = vec4(0.0, 0.0, 0.0, a);
-          }
-        `
-        }
-      />
-    </ScreenQuad>
-  );
-}
-
 function CameraLooper({
   startZ = 2, // where the camera begins
   endZ = -1.4, // how far “forward” it travels (more negative = deeper)
@@ -1048,19 +869,19 @@ function CameraLooper({
 
 // ---------- scene ----------
 function Scene({ density = 1.2, speed = 1.2, glow = 0.6 }) {
-  const streamCount = Math.round(85 * density);
+  const streamCount = Math.round(90 * density);
   const sparkCount = Math.round(1400 * density);
   const speedFactor = 0.95 + (speed - 1) * 0.8;
   const brightness = 0.85 + glow * 0.45;
 
   const area = useFrustumArea({ zNear: -6, zFar: -28, overhang: 0.12 });
   const fog = useMemo(
-    () => new THREE.FogExp2(new THREE.Color("#0A1216"), 0.055),
+    () => new THREE.FogExp2(new THREE.Color("#110716"), 0.038),
     []
   );
 
   const glitchRef = React.useRef(null);
-  const { invalidate } = useThree(); // forces a redraw if frameloop="demand"
+  const { invalidate } = useThree();
 
   const fireGlitch = React.useCallback(
     (ms = 550) => {
@@ -1072,9 +893,9 @@ function Scene({ density = 1.2, speed = 1.2, glow = 0.6 }) {
       g.goWild = true;
       g.delay = [0, 0];
       g.duration = [ms / 1000, ms / 1000];
-      if (typeof g.trigger === "function") g.trigger(); // some versions support this
+      if (typeof g.trigger === "function") g.trigger();
 
-      invalidate(); // in case you're using frameloop="demand"
+      invalidate();
 
       setTimeout(() => {
         // back to “off” state (no random glitches)
@@ -1105,7 +926,6 @@ function Scene({ density = 1.2, speed = 1.2, glow = 0.6 }) {
         endZ={-1.4}
         forwardSeconds={6}
         onSnap={() => {
-          // Do the snap glitch on the NEXT tick to guarantee it shows
           setTimeout(() => fireGlitch(520), 0);
         }}
       />
@@ -1115,13 +935,21 @@ function Scene({ density = 1.2, speed = 1.2, glow = 0.6 }) {
           count={sparkCount}
           speed={0.06 * speedFactor}
           brightness={brightness}
-          area={area} // NEW
-          fillFrustum // NEW
-          prewarm={0.5} // optional: tiny warm start
+          area={area}
+          fillFrustum
+          prewarm={0.5}
           color="#B25AFF"
         />
 
-        {/* <WireframeGrids brightness={brightness} /> */}
+        <DigitalSparks
+          count={Math.round(900 * (density ?? 1))}
+          speed={0.03 * speedFactor}
+          brightness={0.55 * (0.85 + glow * 0.45)}
+          area={area}
+          fillFrustum
+          prewarm={0.5}
+          color="#DCE7FF"
+        />
 
         <MatrixStreams
           streams={streamCount}
@@ -1162,16 +990,14 @@ function Scene({ density = 1.2, speed = 1.2, glow = 0.6 }) {
           tailHaloWidth={0.06}
           tailHaloBlur={0.15}
         />
-
-        {/*       <CRTMask intensity={0.055} scale={840} jitter={0.002} /> */}
       </group>
 
       {/* Post-processing: tasteful bloom + tiny chroma/film & vignette */}
       <EffectComposer multisampling={0}>
         <Bloom
           mipmapBlur
-          intensity={0.28}
-          luminanceThreshold={0.28}
+          intensity={0.34}
+          luminanceThreshold={0.25}
           luminanceSmoothing={0.9}
         />
         <ChromaticAberration offset={[0.00035, 0.00035]} />
@@ -1180,7 +1006,7 @@ function Scene({ density = 1.2, speed = 1.2, glow = 0.6 }) {
           opacity={0.06}
           blendFunction={BlendFunction.SOFT_LIGHT}
         />
-        <Vignette eskil={false} offset={0.23} darkness={0.82} />
+        <Vignette eskil={false} offset={0.24} darkness={0.68} />
 
         {/* CRT-style scanlines (super subtle) */}
         <Scanline
@@ -1190,9 +1016,8 @@ function Scene({ density = 1.2, speed = 1.2, glow = 0.6 }) {
 
         <Glitch
           ref={glitchRef}
-          active // keep the pass alive
-          enabled // (older builds need this)
-          // strong settings so you can't miss it
+          active
+          enabled
           strength={[0.15, 0.35]}
           columns={0.05}
           ratio={1}
@@ -1202,15 +1027,11 @@ function Scene({ density = 1.2, speed = 1.2, glow = 0.6 }) {
           duration={[0.5, 0.5]}
         />
 
-        {/*        <Glitch
-          active
-          mode={GlitchMode.SPORADIC}
-          delay={[2.5, 6.0]}
-          duration={[0.18, 0.35]}
-          strength={[0.15, 0.35]}
-          ratio={0.95}
-          columns={0.05}
-        /> */}
+        <DepthOfField
+          focusDistance={0.015}
+          focalLength={0.015}
+          bokehScale={1.2}
+        />
       </EffectComposer>
     </>
   );

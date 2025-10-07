@@ -1,32 +1,22 @@
-// HEROBACKUP.jsx — color-only update (Mono + Magenta)
 // UI accent: #FF3DDE   •  Secondary magenta: #B25AFF  •  Neutrals unchanged
-import React, { useEffect, useState, useCallback, useRef } from "react";
+import React, { useState } from "react";
+// import MysteriousDeskCanvas from "./canvas/MysteriousDesk"; // only referenced in commented Phase A blocks
 import { styles } from "../styles";
-import MysteriousDeskCanvas from "./canvas/MysteriousDesk";
 
-// === Effect timings (ms) ===
+/* === Effect timings (ms) — used by the commented Phase A sequence ===
 const BARS_DURATION_MS = 600;
 const STATIC_DURATION_MS = 600;
 const FLASH_DURATION_MS = 180; // quick CRT pop
 const SETTLE_DURATION_MS = 500; // subtle scanline/vignette settle
 const ABERR_DURATION_MS = 320; // subtle RGB split duration
-
-function useBodyScrollLocked(locked) {
-  useEffect(() => {
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = locked ? "hidden" : "";
-    return () => {
-      document.body.style.overflow = prev;
-    };
-  }, [locked]);
-}
+*/
 
 // --- Tiny “typewriter” block used in the hero panel ---
 function BootType({ lines, speed = 22 }) {
   const [text, setText] = React.useState("");
   React.useEffect(() => {
-    let i = 0,
-      joined = lines.join("\n");
+    let i = 0;
+    const joined = lines.join("\n");
     const id = setInterval(() => {
       setText(joined.slice(0, i++));
       if (i > joined.length) clearInterval(id);
@@ -55,12 +45,26 @@ function ScrollCue({
 }) {
   const [mounted, setMounted] = React.useState(false);
   const [show, setShow] = React.useState(false);
-  const [leftPx, setLeftPx] = React.useState(() => window.innerWidth / 2);
+  const [leftPx, setLeftPx] = React.useState(0);
   const hideT = React.useRef(null);
+
+  const [isMobile, setIsMobile] = React.useState(
+    () =>
+      typeof window !== "undefined" &&
+      window.matchMedia("(max-width: 767px)").matches
+  );
+  React.useEffect(() => {
+    const mql = window.matchMedia("(max-width: 767px)");
+    const onChange = (e) => setIsMobile(e.matches);
+    mql.addEventListener("change", onChange);
+    return () => mql.removeEventListener("change", onChange);
+  }, []);
+
+  const resolvedMode = mode === "auto" ? (isMobile ? "inline" : "fixed") : mode;
 
   // Only compute left alignment when we're in fixed mode
   React.useEffect(() => {
-    if (mode !== "fixed") return;
+    if (resolvedMode !== "fixed") return;
 
     const updateLeft = () => {
       const el = document.querySelector(alignTo);
@@ -83,7 +87,7 @@ function ScrollCue({
       window.removeEventListener("resize", updateLeft);
       ro?.disconnect();
     };
-  }, [alignTo, mode]);
+  }, [alignTo, resolvedMode]);
 
   const softShow = React.useCallback(() => {
     clearTimeout(hideT.current);
@@ -145,13 +149,13 @@ function ScrollCue({
         @media (prefers-reduced-motion: reduce) { * { animation: none !important } }
       `}</style>
 
-      {mode === "fixed" ? (
+      {resolvedMode === "fixed" ? (
         // Desktop (md+) — fixed near bottom, centered to #hero-divider
         <a
           href={target}
           onClick={() => softHide()}
           aria-label="Scroll to next section"
-          className="hidden md:block fixed bottom-6 z-50 pointer-events-auto select-none transition-opacity"
+          className="hidden xl:block fixed bottom-6 z-50 pointer-events-auto select-none transition-opacity"
           style={{
             left: `${leftPx}px`,
             transform: "translateX(-50%)",
@@ -401,7 +405,7 @@ function TypeSubtitle({ start, speed = 28, delay = 150, className = "" }) {
   return (
     <>
       <style>{`@keyframes caretBlink{0%,49%{opacity:1}50%,100%{opacity:0}}`}</style>
-      <p className={className} style={{ whiteSpace: "nowrap" }}>
+      <p className={className}>
         {segments.map((seg, idx) => {
           const startAt = offsets[idx];
           const visible = Math.max(0, Math.min(i - startAt, seg.text.length));
@@ -428,39 +432,24 @@ function TypeSubtitle({ start, speed = 28, delay = 150, className = "" }) {
   );
 }
 
-function MobileMatchNavStyles() {
-  return (
-    <style>{`
-      /* On mobile, give elements the same side gutters as the nav box */
-      @media (max-width: 767.98px) {
-        :root { --mobile-gutter: clamp(12px, 4vw, 24px); } /* tweak if your nav uses different insets */
-        .mobile-match-nav {
-          width: calc(100% - var(--mobile-gutter) * 2) !important;
-          margin-left: var(--mobile-gutter) !important;
-          margin-right: var(--mobile-gutter) !important;
-        }
-      }
-    `}</style>
-  );
-}
-
 export default function Hero({ onEntered, reenter3D = false }) {
-  const [entered, setEntered] = useState(false);
-  const [bars, setBars] = useState(false);
+  const [entered, setEntered] = useState(true);
+  /* const [bars, setBars] = useState(false);
   const [staticNoise, setStaticNoise] = useState(false);
   const [flash, setFlash] = useState(false);
   const [settle, setSettle] = useState(false);
-  const [aberr, setAberr] = useState(false);
+  const [aberr, setAberr] = useState(false); */
 
   const marjutRef = React.useRef(null);
   const akaRef = React.useRef(null);
 
+  /* handle replay of name scramble on hover/focus */
   const handleReplay = () => {
     marjutRef.current?.play();
     setTimeout(() => akaRef.current?.play(), 120);
   };
 
-  const handleEnter = useCallback(() => {
+  /* const handleEnter = React.useCallback(() => {
     // 3D → UI transition sequence
     setBars(true);
     setTimeout(() => setStaticNoise(true), BARS_DURATION_MS);
@@ -501,7 +490,7 @@ export default function Hero({ onEntered, reenter3D = false }) {
   }, [onEntered]);
 
   // Optional: allow re-enter to replay 3D
-  useEffect(() => {
+  React.useEffect(() => {
     if (reenter3D) {
       setEntered(false);
       setBars(false);
@@ -510,18 +499,24 @@ export default function Hero({ onEntered, reenter3D = false }) {
       setSettle(false);
       setAberr(false);
     }
-  }, [reenter3D]);
+  }, [reenter3D]); */
 
   return (
-    <section id="hero" className="relative w-full h-[110svh] overflow-hidden">
+    <section
+      id="hero"
+      className="relative w-full min-h=[110svh] md:min-h-[118svh] lg:min-h-[112svh] xl:min-h-[100svh]
+             pb-24 md:pb-28 lg:pb-32 xl:pb-24
+             overflow-visible md:overflow-hidden"
+      style={{ overflowX: "clip" }}
+    >
       <span
         id="hero-top-sentinel"
         aria-hidden="true"
-        className="absolute top-0 left-0 w-px h-px pointer-events-none"
+        className="relative w-full min-h-[20svh] md:min-h-0 overflow-visible md:overflow-hidden"
       />
 
       {/* Phase A: 3D scene */}
-      {!entered && !bars && !staticNoise && !flash && !settle && !aberr && (
+      {/*       {!entered && !bars && !staticNoise && !flash && !settle && !aberr && (
         <div className="fixed inset-0 z-30">
           <MysteriousDeskCanvas mode="forward" onEnterScreen={handleEnter} />
 
@@ -532,10 +527,10 @@ export default function Hero({ onEntered, reenter3D = false }) {
             Enter
           </button>
         </div>
-      )}
+      )} */}
 
       {/* Step 1: horizontal bars */}
-      {bars && (
+      {/*       {bars && (
         <>
           <style>{`
             @keyframes barsOn { 
@@ -557,10 +552,10 @@ export default function Hero({ onEntered, reenter3D = false }) {
             />
           </div>
         </>
-      )}
+      )} */}
 
       {/* Step 2: static */}
-      {staticNoise && (
+      {/*       {staticNoise && (
         <>
           <style>{`
             @keyframes staticIn { 0%{opacity:0} 100%{opacity:1} }
@@ -576,10 +571,10 @@ export default function Hero({ onEntered, reenter3D = false }) {
             />
           </div>
         </>
-      )}
+      )} */}
 
       {/* Step 3: flash + aberration settle */}
-      {settle && (
+      {/*       {settle && (
         <>
           <style>{`
             @keyframes settleVignette { 0%{opacity:1} 100%{opacity:0.35} }
@@ -606,10 +601,10 @@ export default function Hero({ onEntered, reenter3D = false }) {
             />
           </div>
         </>
-      )}
+      )} */}
 
       {/* Step 4: CRT flash */}
-      {flash && (
+      {/*       {flash && (
         <>
           <style>{`
             @keyframes flashPop { 0%{opacity:0} 15%{opacity:1} 70%{opacity:1} 100%{opacity:0} }
@@ -636,14 +631,18 @@ export default function Hero({ onEntered, reenter3D = false }) {
             />
           </div>
         </>
-      )}
+      )} */}
 
       {/* Phase B: site content */}
       <div
-        className={`absolute inset-0 top-[160px] z-10 pointer-events-none ${
+        className={`relative z-10 pointer-events-none pt-[128px] sm:pt-[140px] md:pt-[156px] xl:pt-[168px] ${
           entered ? "opacity-100" : "opacity-0"
         }`}
-        style={{ transition: "opacity 200ms ease" }}
+        style={{
+          transition: "opacity 200ms ease",
+          paddingTop: "calc(env(safe-area-inset-top, 0px) + 128px)",
+          paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 0px)",
+        }}
       >
         {/* match Navbar container */}
         <div className={`mx-auto max-w-7xl ${styles.paddingX} relative`}>
@@ -656,9 +655,9 @@ export default function Hero({ onEntered, reenter3D = false }) {
           />
 
           {/* 1 col on mobile, 2 cols on md+ */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-y-8 md:gap-y-10 md:gap-x-14 lg:gap-x-20 items-start pointer-events-auto">
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-y-2 xl:gap-x-20 items-start pointer-events-auto">
             {/* Left: terminal boot panel */}
-            <div className="w-full md:max-w-[560px] md:justify-self-start">
+            <div className="w-full xl:max-w-[560px] xl:justify-self-start min-w-0">
               <div
                 className="w-full mb-4 md:mb-5 lg:mb-6 border bg-black/50 backdrop-blur-sm overflow-hidden"
                 style={{
@@ -701,7 +700,7 @@ export default function Hero({ onEntered, reenter3D = false }) {
             </div>
 
             {/* Right: name + title */}
-            <div className="self-start w-full md:justify-self-stretch">
+            <div className="self-start w-full md:justify-self-stretch min-w-0 [container-type:inline-size]">
               {/* Glow behind title */}
               <div
                 className="pointer-events-none absolute -z-10 right-0 top-0 h-[52vmin] w-[52vmin]
@@ -709,27 +708,70 @@ export default function Hero({ onEntered, reenter3D = false }) {
                 style={{ transform: "translate(12%, -6%)" }}
               />
 
-              <div className="self-start">
+              <div className="w-full mt-4 xl:mt-0 mb-4">
                 <HackerTitleStyles />
+                <style>{`
+                  /* MOBILE (≤768px) */
+              @media (max-width: 768px) {
+                .hero-name { 
+                  font-size: clamp(36px, 16vw + 8px, 52px) !important; 
+                }
+                .hero-sub  { 
+                  font-size: clamp(11.5px, 2.4vw + 2px, 15.5px) !important; 
+                }
+              }
+
+              /* PRE-TABLET (769–999px) — uses container query units */
+              @media (min-width: 769px) and (max-width: 999px) {
+                .hero-name { font-size: clamp(34px, 6vw + 2px, 72px); }
+                .hero-sub  { font-size: clamp(15px, 1.2cqw + 7px, 20px) !important; }
+              }
+
+              /* JUST BEFORE XL (1000–1279px) */
+              @media (min-width: 1000px) and (max-width: 1279px) {
+                .hero-name { font-size: clamp(34px, 6vw + 2px, 72px) !important; }
+                .hero-sub  { font-size: clamp(13px, 2.2cqw + 6px, 20px) !important; }
+              }
+
+              /* XL+ (≥1280px) — two columns */
+              @media (min-width: 1280px) {
+                .hero-name { font-size: clamp(39px, 14cqw + 11px, 135px); }
+                .hero-sub  { font-size: clamp(15px, 3.2cqw + 6px, 28px); }
+              }
+
+              /* FALLBACKS for browsers without container query units */
+              @supports not (font-size: 1cqw) {
+
+                /* 769–999px fallback */
+                @media (min-width: 769px) and (max-width: 999px) {
+                  .hero-name { font-size: clamp(34px, 6vw + 2px, 72px) !important; }
+                  .hero-sub  { font-size: clamp(16px, 2vw + 4px, 20px) !important; }
+                }
+
+                /* 1000–1279px fallback */
+                @media (min-width: 1000px) and (max-width: 1279px) {
+                  .hero-name { font-size: clamp(32px, 5vw + 2px, 68px) !important; }
+                  .hero-sub  { font-size: clamp(16px, 1.6vw + 4px, 19px) !important; }
+                }
+              }
+                `}</style>
+
                 <h1
-                  className={`${styles.heroHeadText} w-full leading-[0.92] tracking-[-0.01em]
-                  !text-[clamp(42px,12vw,70px)] sm:!text-[clamp(52px,12vw,84px)] md:!text-[min(9vw,85px)]`}
+                  className={`${styles.heroHeadText} hero-name w-full tracking-[-0.01em]
+      font-extrabold [text-wrap:balance] xl:whitespace-nowrap
+      !leading-[0.95] lg:!leading-[0.92] xl:!leading-[0.88]`}
                   onMouseEnter={handleReplay}
                   onFocus={handleReplay}
                   tabIndex={0}
                 >
                   <span className="hud-title">
                     <span className="block">
-                      <ScrambleText
-                        ref={marjutRef}
-                        text="Marjut"
-                        duration={900}
-                      />
+                      <ScrambleText ref={marjutRef} text="Hi," duration={900} />
                     </span>
                     <span className="block">
                       <ScrambleText
                         ref={akaRef}
-                        text="Ala-Ketola"
+                        text="I'm Marjut"
                         duration={1100}
                         delay={180}
                       />
@@ -741,7 +783,10 @@ export default function Hero({ onEntered, reenter3D = false }) {
                   start={entered}
                   speed={28}
                   delay={180}
-                  className={`${styles.heroSubText} mt-2 text-zinc-300/90 tracking-[-0.01em] [word-spacing:-0.12em] block whitespace-nowrap !text-[clamp(18px,2vw,26px)] sm:!text-[clamp(52px,12vw,84px)] md:!text-[min(9vw,22px)] !leading-tight`}
+                  className={`${styles.heroSubText} hero-sub
+                  mt-3 text-zinc-300/90 tracking-[-0.01em]
+                  [text-wrap:balance] whitespace-normal break-words
+                  block !leading-tight`}
                 />
               </div>
             </div>
@@ -749,11 +794,11 @@ export default function Hero({ onEntered, reenter3D = false }) {
         </div>
       </div>
 
-      {/* ▼ Scroll cue (only after content is revealed) */}
+      {/* ▼ Scroll cue */}
       {entered && (
         <ScrollCue
           mode="fixed"
-          target="#about"
+          target="#work"
           alignTo="#hero-divider"
           fadeMs={220}
         />

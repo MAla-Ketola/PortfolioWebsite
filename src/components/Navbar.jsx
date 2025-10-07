@@ -1,11 +1,10 @@
-// Navbar.jsx — mono + magenta, square corners, progress hairline
 import React, { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { styles } from "../styles";
 import { navLinks } from "../constants";
 import { menu, close } from "../assets";
-import logo1 from "../assets/logo1.png";
+import logo1 from "../assets/mak-logo.png";
 
 const ACCENT = "#B25AFF";
 
@@ -102,12 +101,12 @@ const Navbar = () => {
               className="flex items-center gap-3"
               onClick={() => window.scrollTo(0, 0)}
             >
-  {/*             <img
+{/*               <img
                 src={logo1}
                 alt="logo"
-                className="w-10 h-10 object-contain"
+                className="h-[1em] md:h-[1.05em] w-auto align-middle"
               /> */}
-              <div className="hidden sm:flex items-center gap-2">
+              <div className="flex items-center gap-2 whitespace-nowrap">
                 <span
                   className="w-2 h-2 rounded-full"
                   style={{

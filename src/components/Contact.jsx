@@ -1,4 +1,3 @@
-// Contact.jsx — magenta HUD, square corners, About-style borders
 import React, { useRef, useState } from "react";
 import { motion } from "framer-motion";
 import emailjs from "@emailjs/browser";
@@ -7,9 +6,6 @@ import { styles } from "../styles";
 import { SectionWrapper } from "../hoc";
 import { slideIn } from "../utils/motion";
 
-/* =======================
-   Title FX (same as About)
-   ======================= */
 const GLYPHS = "01<>{}/\\|=+*#@$%&?";
 
 function SectionTitleStyles() {
@@ -206,9 +202,6 @@ function TypeTitle({ text, duration = 700, delay = 0, className = "" }) {
   );
 }
 
-/* =======================
-   Magenta panel + form controls
-   ======================= */
 const EDGE = "rgba(178,90,255,0.30)"; // panel edge / inputs / chips
 const DIVIDE = "rgba(178,90,255,0.25)"; // header divider
 const PLATE = "rgba(178,90,255,0.06)"; // subtle plate fill
@@ -389,7 +382,7 @@ const Contact = () => {
                   name="message"
                   value={form.message}
                   onChange={handleChange}
-                  placeholder="Tell me about your idea or role…"
+                  placeholder="Looking for new roles and collaborations! Share your job opportunity, project, or question."
                   className={`${inputBase} border`}
                   style={{
                     borderColor: EDGE,
@@ -504,7 +497,7 @@ const Contact = () => {
                 <ul className="space-y-1">
                   <li>
                     <a
-                      href="https://github.com/YOUR_USERNAME"
+                      href="https://github.com/MAla-Ketola"
                       target="_blank"
                       rel="noreferrer"
                       className="underline"
@@ -518,12 +511,12 @@ const Contact = () => {
                           "rgba(178,90,255,0.40)")
                       }
                     >
-                      github.com/YOUR_USERNAME
+                      github.com/MAla-Ketola
                     </a>
                   </li>
                   <li>
                     <a
-                      href="https://linkedin.com/in/YOUR_USERNAME"
+                      href="https://www.linkedin.com/in/marjut-ala-ketola-1b818b323"
                       target="_blank"
                       rel="noreferrer"
                       className="underline"
@@ -537,7 +530,7 @@ const Contact = () => {
                           "rgba(178,90,255,0.40)")
                       }
                     >
-                      linkedin.com/in/YOUR_USERNAME
+                      linkedin.com/in/marjut-ala-ketola
                     </a>
                   </li>
                 </ul>
@@ -556,8 +549,8 @@ const Contact = () => {
                   style={{ color: NEAR }}
                 >
                   {`marjut@portfolio:~$ ping contact
-> listening on ports: email, github, linkedin
-> status: online`}
+                  > listening on ports: email, github, linkedin
+                  > status: online`}
                   <span className="animate-pulse"> ▍</span>
                 </pre>
               </div>

@@ -1,4 +1,3 @@
-// Works.jsx — 3-up carousel (no peeking) with inter-page seam + equal card heights
 import React from "react";
 import { motion } from "framer-motion";
 
@@ -7,10 +6,6 @@ import { github } from "../assets";
 import { SectionWrapper } from "../hoc";
 import { projects } from "../constants";
 import { fadeIn } from "../utils/motion";
-
-/* =====================================
-   Title FX (same family as About)
-   ===================================== */
 
 const GLYPHS = "01<>/\\|=+*#@$%&?";
 
@@ -89,49 +84,19 @@ function SectionTitleStyles() {
       .group:hover .hud-ring{ box-shadow: inset 0 0 0 1px rgba(178,90,255,.45), 0 0 0 1px rgba(178,90,255,.28), 0 0 46px rgba(178,90,255,.16); }
       @media (min-resolution: 2dppx){ .hud-crt{ background-size:100% 2px; } }
 
-      /* ===========================
-         Carousel UI — mobile-friendly
-         =========================== */
-      .carousel-viewport{ overflow:hidden; position:relative; }
-      .carousel-track{ display:flex; will-change: transform; }
-      .carousel-page{ flex:0 0 100%; box-sizing: border-box; }
-
-      .carousel-dots{ display:flex; align-items:center; gap:.5rem; justify-content:center; }
-      .carousel-dot{ width:8px; height:8px; border:1px solid rgba(178,90,255,.45); background:rgba(178,90,255,.06); border-radius:9999px; }
-      .carousel-dot[aria-current="true"]{ background:rgba(178,90,255,.75); box-shadow:0 0 12px rgba(178,90,255,.35); }
-
+      /* Reinforce bottom edge on small screens (hairline can vanish) */
+      .panel{ position: relative; }
+      .panel::after{
+        content:"";
+        position:absolute;
+        inset:0;
+        pointer-events:none;
+        border-radius:inherit;
+        box-shadow: inset 0 -1px rgba(178,90,255,.55);
+      }
       @media (max-width: 639px){
-        .carousel-dots{ gap:.4rem; }
-        .carousel-dot{ width:7px; height:7px; }
+        .panel{ border-color: rgba(178,90,255,.42) !important; }
       }
-
-      /* ===========================
-         Inter-page seam (gap) while keeping each page 100% width
-         =========================== */
-      .carousel{ --page-gap:16px; } /* base: matches gap-4 */
-      @media (min-width:640px){ .carousel{ --page-gap:24px; } } /* sm+: matches gap-6 */
-      .carousel-track{ gap: var(--page-gap); }
-      @supports not (gap: 1px){
-        .carousel-track > * + * { margin-left: var(--page-gap); }
-      }
-
-      /* Reinforce bottom edge on mobile (hairline can vanish on transforms) */
-.panel{ position: relative; }
-.panel::after{
-  content:"";
-  position:absolute;
-  inset:0;
-  pointer-events:none;
-  border-radius:inherit;
-  /* a crisp inner bottom line so it always shows */
-  box-shadow: inset 0 -1px rgba(178,90,255,.55);
-}
-
-/* Slightly stronger border on small screens for contrast */
-@media (max-width: 639px){
-  .panel{ border-color: rgba(178,90,255,.42) !important; }
-}
-
     `}</style>
   );
 }
@@ -307,12 +272,14 @@ const Tag = ({ children }) => (
   </span>
 );
 
-/*
- * IconButton — now renders an <a> when `href` is provided so taps
- * open reliably on iOS/Android (some mobile browsers block window.open).
- * We also add data-no-swipe to opt out from the carousel drag logic.
- */
-const IconButton = ({ href, onClick, children, label, disabled, target = "_blank" }) => {
+const IconButton = ({
+  href,
+  onClick,
+  children,
+  label,
+  disabled,
+  target = "_blank",
+}) => {
   const baseClass =
     "inline-flex items-center gap-2 px-2.5 py-1.5 rounded-none text-xs md:text-sm font-mono focus:outline-none focus:ring-2 cursor-pointer select-none";
   const baseStyle = {
@@ -323,7 +290,8 @@ const IconButton = ({ href, onClick, children, label, disabled, target = "_blank
   };
 
   const hoverHandlers = {
-    onMouseEnter: (e) => (e.currentTarget.style.backgroundColor = "rgba(178,90,255,0.12)"),
+    onMouseEnter: (e) =>
+      (e.currentTarget.style.backgroundColor = "rgba(178,90,255,0.12)"),
     onMouseLeave: (e) => (e.currentTarget.style.backgroundColor = SOFT),
   };
 
@@ -338,7 +306,6 @@ const IconButton = ({ href, onClick, children, label, disabled, target = "_blank
         role="button"
         className={baseClass}
         style={baseStyle}
-        data-no-swipe
       >
         {children}
       </a>
@@ -355,7 +322,6 @@ const IconButton = ({ href, onClick, children, label, disabled, target = "_blank
       aria-label={label}
       className={baseClass + (disabled ? " opacity-40" : "")}
       style={baseStyle}
-      data-no-swipe
     >
       {children}
     </button>
@@ -378,7 +344,7 @@ const ProjectCard = ({
       className="h-full"
     >
       <Panel
-        className="h-full project-card" // <- marked for measuring
+        className="h-full project-card"
         title={`/srv/projects/${slug}`}
         right={
           <div className="flex items-center gap-2">
@@ -392,10 +358,7 @@ const ProjectCard = ({
               </IconButton>
             )}
             {live_demo && (
-              <IconButton
-                href={live_demo}
-                label={`Open live demo for ${name}`}
-              >
+              <IconButton href={live_demo} label={`Open live demo for ${name}`}>
                 ⏵ Demo
               </IconButton>
             )}
@@ -443,41 +406,15 @@ const ProjectCard = ({
   );
 };
 
-/* =====================================
-   Carousel helpers — mobile-friendly
-   ===================================== */
-
-const chunk = (arr, size) =>
-  arr.reduce((acc, _, i) => {
-    if (i % size === 0) acc.push(arr.slice(i, i + size));
-    return acc;
-  }, []);
-
-// Hook: responsive cards per page (1 on small screens, 3 otherwise)
-function useResponsivePerPage() {
-  const [perPage, setPerPage] = React.useState(3);
-  React.useEffect(() => {
-    if (typeof window === "undefined" || !window.matchMedia) return;
-    const mq = window.matchMedia("(max-width: 639px)"); // Tailwind sm breakpoint
-    const apply = () => setPerPage(mq.matches ? 1 : 3);
-    apply();
-    mq.addEventListener?.("change", apply);
-    return () => mq.removeEventListener?.("change", apply);
-  }, []);
-  return perPage;
-}
-
-/* NEW: Hook to equalize card heights across all pages */
-function useEqualCardHeights(viewportRef, deps = []) {
+function useEqualCardHeights(rootRef, deps = []) {
   React.useLayoutEffect(() => {
-    const root = viewportRef.current?.closest(".carousel");
+    const root = rootRef.current;
     if (!root) return;
 
     const measure = () => {
       const cards = root.querySelectorAll(".project-card");
       let max = 0;
       cards.forEach((el) => {
-        // natural content height (ignores existing minHeight)
         const h = el.scrollHeight;
         if (h > max) max = h;
       });
@@ -485,16 +422,13 @@ function useEqualCardHeights(viewportRef, deps = []) {
     };
 
     measure();
-
     const onResize = () => measure();
     window.addEventListener("resize", onResize);
 
-    // re-measure when fonts finish loading (text metrics can change height)
     if (document.fonts?.ready) {
       document.fonts.ready.then(() => measure()).catch(() => {});
     }
 
-    // small async to catch late layout (e.g., after animations)
     const t = setTimeout(measure, 50);
 
     return () => {
@@ -505,119 +439,8 @@ function useEqualCardHeights(viewportRef, deps = []) {
 }
 
 const Works = () => {
-  const isInteractiveEl = (el) =>
-    el?.closest('a, button, input, textarea, select, [role="button"], [data-no-swipe]');
-
-  const perPage = useResponsivePerPage();
-
-  // Split projects into pages based on responsive perPage
-  const pages = React.useMemo(() => chunk(projects, perPage), [perPage]);
-  const pageCount = pages.length;
-  const [page, setPage] = React.useState(0);
-
-  // Keep current page in range if pageCount changes (e.g., due to resize)
-  React.useEffect(() => {
-    setPage((p) => Math.min(p, Math.max(0, pageCount - 1)));
-  }, [pageCount]);
-
-  // Reset to first page on layout switch (prevents offscreen blank during resize)
-  React.useEffect(() => { setPage(0); }, [perPage]);
-
-  // Keyboard navigation (← / →)
-  React.useEffect(() => {
-    const onKey = (e) => {
-      if (e.key === "ArrowLeft") setPage((p) => Math.max(0, p - 1));
-      if (e.key === "ArrowRight")
-        setPage((p) => Math.min(pageCount - 1, p + 1));
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [pageCount]);
-
-  // Swipe/drag with direction-lock
-  const viewportRef = React.useRef(null);
-  const [dragPct, setDragPct] = React.useState(0);
-  const drag = React.useRef({
-    startX: 0,
-    startY: 0,
-    lastX: 0,
-    active: false,
-    lock: null,
-  });
-
-  const getX = (e) =>
-    typeof e.clientX === "number" ? e.clientX : e.touches?.[0]?.clientX ?? 0;
-  const getY = (e) =>
-    typeof e.clientY === "number" ? e.clientY : e.touches?.[0]?.clientY ?? 0;
-
-  const onPointerDown = (e) => {
-    if (isInteractiveEl(e.target)) return; // <-- don't capture, don't drag
-    const x = getX(e);
-    const y = getY(e);
-    drag.current = { startX: x, startY: y, lastX: x, active: true, lock: null };
-    e.currentTarget.setPointerCapture?.(e.pointerId);
-  };
-
-  const onPointerMove = (e) => {
-    if (!drag.current.active) return;
-    if (isInteractiveEl(e.target)) return;
-    const x = getX(e);
-    const y = getY(e);
-
-    if (drag.current.lock == null) {
-      const dx = Math.abs(x - drag.current.startX);
-      const dy = Math.abs(y - drag.current.startY);
-      if (dx > 6 || dy > 6) drag.current.lock = dx > dy ? "x" : "y";
-    }
-    if (drag.current.lock !== "x") return;
-
-    e.preventDefault();
-
-    const dx = x - drag.current.startX;
-    const vw = viewportRef.current?.offsetWidth || 1;
-    setDragPct((dx / vw) * 100);
-    drag.current.lastX = x;
-  };
-
-  const onPointerUp = (e) => {
-    if (!drag.current.active) return;
-    if (isInteractiveEl(e.target)) return;
-    e.currentTarget.releasePointerCapture?.(e.pointerId);
-
-    const totalDx = drag.current.lastX - drag.current.startX;
-    const vw = viewportRef.current?.offsetWidth || 1;
-    const moved = Math.abs(totalDx) / vw;
-
-    if (moved > 0.18) {
-      if (totalDx > 0) setPage((p) => Math.max(0, p - 1));
-      else setPage((p) => Math.min(pageCount - 1, p + 1));
-    }
-
-    setDragPct(0);
-    drag.current.active = false;
-    drag.current.lock = null;
-  };
-
-  // Inter-page seam compensation
-  const [seamPx, setSeamPx] = React.useState(0);
-  React.useEffect(() => {
-    const el = viewportRef.current;
-    if (!el) return;
-    const read = () => {
-      const v =
-        parseFloat(getComputedStyle(el).getPropertyValue("--page-gap")) || 0;
-      setSeamPx(v);
-    };
-    read();
-    window.addEventListener("resize", read);
-    return () => window.removeEventListener("resize", read);
-  }, []);
-
-  // NEW: Equalize card heights across pages
-  useEqualCardHeights(viewportRef, [perPage, pageCount]);
-
-  const goPrev = () => setPage((p) => Math.max(0, p - 1));
-  const goNext = () => setPage((p) => Math.min(pageCount - 1, p + 1));
+  const gridRef = React.useRef(null);
+  useEqualCardHeights(gridRef, [projects?.length || 0]);
 
   return (
     <>
@@ -630,7 +453,7 @@ const Works = () => {
         viewport={{ once: true }}
       >
         <p className={`${styles.sectionSubText}`}>
-          <TypeTitle text="WORKS" duration={650} delay={50} />
+          <TypeTitle text="MY WORK" duration={650} delay={50} />
         </p>
         <h2 className={`${styles.sectionHeadText}`}>
           <span className="hud-h2">
@@ -644,89 +467,17 @@ const Works = () => {
           variants={fadeIn("", "", 0.1, 1)}
           className="mt-3 font-mono text-[rgba(232,240,255,0.88)] text-[15px] max-w-3xl leading-7"
         >
-          Experiments and case studies—focused on UX, UI, and implementation
-          details—structure, performance, and accessibility.
+          Projects and experiments at the intersection of user experience,
+          interface design, and software development—exploring structure,
+          performance, and accessibility.
         </motion.p>
       </div>
 
-      {/* =========================
-          Carousel
-          ========================= */}
-      <div
-        className="mt-8 relative carousel"
-        role="region"
-        aria-roledescription="carousel"
-        aria-label="Project carousel"
-      >
-        {/* Viewport */}
-        <div
-          ref={viewportRef}
-          className="carousel-viewport select-none"
-          style={{ touchAction: "pan-y" }} /* keep pages 100% width, no peek */
-          onPointerDown={onPointerDown}
-          onPointerMove={onPointerMove}
-          onPointerUp={onPointerUp}
-          onPointerCancel={onPointerUp}
-        >
-          <div
-            className="carousel-track transition-transform duration-500 ease-out"
-            style={{
-              transform: `translateX(calc(-${Math.min(page, pageCount - 1) * 100}% - ${Math.min(page, pageCount - 1) * seamPx}px + ${dragPct}%))`,
-            }}
-          >
-            {pages.map((pageItems, pIdx) => (
-              <div key={pIdx} className="carousel-page">
-                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6 items-stretch">
-                  {pageItems.map((project, i) => (
-                    <ProjectCard
-                      key={`project-${pIdx}-${i}`}
-                      index={pIdx * perPage + i}
-                      {...project}
-                    />
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Controls */}
-        <div className="flex items-center justify-center sm:justify-between mt-4">
-          <div className="hidden sm:block">
-            <IconButton
-              onClick={goPrev}
-              disabled={page === 0}
-              label="Previous projects"
-            >
-              ‹ Prev
-            </IconButton>
-          </div>
-          <div
-            className="carousel-dots"
-            role="tablist"
-            aria-label="Project pages"
-          >
-            {Array.from({ length: pageCount }).map((_, i) => (
-              <button
-                key={i}
-                className="carousel-dot"
-                aria-label={`Go to page ${i + 1}`}
-                aria-current={i === page ? "true" : "false"}
-                onClick={() => setPage(i)}
-                style={{ outline: "none" }}
-              />
-            ))}
-          </div>
-
-          <div className="hidden sm:block">
-            <IconButton
-              onClick={goNext}
-              disabled={page === pageCount - 1}
-              label="Next projects"
-            >
-              Next ›
-            </IconButton>
-          </div>
+      <div ref={gridRef} className="mt-8 works-grid">
+        <div className="grid grid-cols-1 min-[850px]:grid-cols-2 min-[1440px]:grid-cols-3 gap-4 sm:gap-6 items-stretch">
+          {projects.map((project, i) => (
+            <ProjectCard key={`project-${i}`} index={i} {...project} />
+          ))}
         </div>
       </div>
     </>
@@ -734,5 +485,3 @@ const Works = () => {
 };
 
 export default SectionWrapper(Works, "work");
-
-

@@ -5,7 +5,6 @@ import { technologies } from "../constants";
 import { SectionWrapper } from "../hoc";
 import headshot from "../assets/headshot2.png";
 
-/* ===== Styles (trimmed) ===== */
 const GLYPHS = "01<>{}/\\|=+*#@$%&?";
 
 export function SectionTitleStyles() {
@@ -293,7 +292,7 @@ const About = () => {
           initial={{ opacity: 0, y: 10 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          style={{ height: "var(--ph)" }}
+          className="h-auto md:h-[var(--ph)]"
         >
           <Panel title="/etc/about">
             <p className="font-mono text-[15px] leading-7 text-zinc-200/90">
@@ -339,7 +338,7 @@ const About = () => {
                   alt=""
                   aria-hidden
                 />
-                {/* ▼ NEW: CRT overlay (same look as /bin/boot) */}
+                {/* CRT overlay (same look as /bin/boot) */}
                 <span className="ov hud-crt" aria-hidden="true" />
 
                 {/* existing overlays */}
