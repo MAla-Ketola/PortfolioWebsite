@@ -5,11 +5,11 @@ import MatrixBG from "./MatrixBG";
 export default function RootMatrixBG() {
   return (
     <div
-      className="fixed inset-0 -z-50 pointer-events-none"
+      className="fixed inset-0 -z-10 pointer-events-none mx-viewport"
       aria-hidden="true"
     >
       {/* You can tweak these props from here if you like */}
-      <MatrixBG density={1.2} speed={1.2} glow={0.6} opacity={1} className="absolute inset-0" />
+      <MatrixBG density={1.2} speed={1.2} glow={0.6} opacity={1} className="absolute inset-0 w-full h-full" />
     </div>
   );
 }

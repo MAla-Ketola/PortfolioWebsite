@@ -10,23 +10,28 @@ module.exports = {
           "monospace",
         ],
         sans: ["Karla", "system-ui", "sans-serif"],
+        serif: ["Playfair Display", "serif"],
       },
       colors: {
-        primary: "#000000ff",
-        secondary: "#ffffffff",
-        tertiary: "#151030",
-        "black-100": "#100d25",
-        "black-200": "#090325",
-        "white-100": "#f3f3f3",
+        primary: "#1a1a1a", 
+        paper: "#fdfbf7",   // Global background (Warm White)
+        
+        // Your Roadmap Palette
+        "bento-pink": "#F8C8DC",  // Hero & Contact
+        "bento-mint": "#C1E1C1",  // About Me
+        "bento-blue": "#BDE0FE",  // Projects
+        "bento-deep": "#A2D2FF",  // Experience
+        "bento-cream": "#FEF9E7", // Toolbelt
+        
+        // UI
+        surface: "#ffffff", 
+        border: "#1a1a1a",
       },
-      boxShadow: {
-        card: "0px 35px 120px -15px #211e35",
-      },
-      screens: {
-        xs: "450px",
+      borderWidth: {
+        DEFAULT: "1.5px",
       },
       backgroundImage: {
-        "hero-pattern": "url('/src/assets/herobg.png')",
+        "grid-pattern": "linear-gradient(to right, #f0f0f0 1px, transparent 1px), linear-gradient(to bottom, #f0f0f0 1px, transparent 1px)",
       },
     },
   },

@@ -19,7 +19,10 @@ import {
   eneme,
   uwe,
   coursera,
-  portfolio
+  portfolio,
+  rootodyssey,
+  oldschool,
+  platformer,
 } from "../assets";
 
 export const navLinks = [
@@ -102,17 +105,16 @@ const experiences = [
     icon: uwe,
     iconBg: "#383E56",
     date: "2020 - 2023",
-    points: [
-    ],
+    points: [],
   },
   {
     title: "Meta Front-End Developer Certificate",
-    company_name: "Focused on React, JavaScript, and front-end development best practices",
+    company_name:
+      "Focused on React, JavaScript, and front-end development best practices",
     icon: coursera,
     iconBg: "#E6DEDD",
     date: "2025",
-    points: [
-    ],
+    points: [],
   },
 ];
 
@@ -152,17 +154,18 @@ const projects = [
         color: "green-text-gradient",
       },
       {
-        name: "UX",
+        name: "ux",
         color: "pink-text-gradient",
       },
-           {
+      {
         name: "webdesign",
         color: "pink-text-gradient",
       },
     ],
     image: AK,
     source_code_link: null,
-    live_demo:"https://en.ali-ketolantila.fi/"
+    live_demo: "https://en.ali-ketolantila.fi/",
+    page: "/ali-ketola",
   },
   {
     name: "Portfolio",
@@ -194,7 +197,7 @@ const projects = [
         color: "blue-text-gradient",
       },
       {
-        name: "Unity",
+        name: "unity",
         color: "green-text-gradient",
       },
     ],
@@ -207,11 +210,11 @@ const projects = [
       "A vertical slice of a user-friendly habit-building app designed to help users manage daily habits, and track progress.​",
     tags: [
       {
-        name: "XCode",
+        name: "xcode",
         color: "blue-text-gradient",
       },
       {
-        name: "Swift",
+        name: "swift",
         color: "green-text-gradient",
       },
     ],
@@ -224,11 +227,58 @@ const projects = [
       "Two-player puzzle-platformer: sabotage your time-displaced twin in a past–present limbo. Inspired by It Takes Two and Fez.",
     tags: [
       {
-        name: "C++",
+        name: "c++",
         color: "blue-text-gradient",
       },
     ],
     image: eneme,
+    source_code_link: null,
+  },
+  {
+    name: "Root Odyssey",
+    description:
+      "I designed and implemented an advanced inventory system with an intuitive user interface. Working in a five-person team (Global Game Jam 2023) strengthened my integration and collaboration skills.",
+    tags: [
+      {
+        name: "unity",
+        color: "blue-text-gradient",
+      },
+      {
+        name: "csharp",
+        color: "blue-text-gradient",
+      },
+    ],
+    image: rootodyssey,
+    source_code_link: null,
+  },
+  {
+    name: "Fantasy RPG Platformer",
+    description:
+      "Designed a challenging level with complex puzzles and dynamic player abilities, showcasing expertise in level design, gameplay mechanics, and problem-solving.",
+    tags: [
+      {
+        name: "unrealengine",
+        color: "blue-text-gradient",
+      },
+    ],
+    image: platformer,
+    source_code_link: null,
+  },
+  {
+    name: "Old School FPS",
+    description:
+      "A vertical slice of an old-school first-person shooter game inspired by classic titles such as Wolfenstein 3D and Doom.",
+    tags: [
+      {
+        name: "c++",
+        color: "blue-text-gradient",
+      },
+      {
+        name: "unrealengine",
+        color: "blue-text-gradient",
+      },
+    ],
+    image: oldschool,
     source_code_link: null,
   },
 ];

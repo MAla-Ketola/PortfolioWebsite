@@ -255,3 +255,24 @@ p {
       -2.6em 0em 0 0em rgba(255, 255, 255, 0.7), -1.8em -1.8em 0 0em #ffffff;
   }
 }
+
+html, body, #root { height: 100%; }
+body { overscroll-behavior-y: none; background-color: #000; } /* keep your site bg */
+#hero { overscroll-behavior: contain; }
+
+/* Dynamic viewport utility for fixed/fullscreen backgrounds */
+/* Full visual-viewport height for fixed backgrounds */
+.mx-viewport { height: 100dvh; min-height: 100dvh; }
+
+/* Prefer lvh on browsers that support it (prevents gaps during URL-bar hide) */
+@supports (height: 100lvh) {
+  .mx-viewport { height: 100lvh; min-height: 100lvh; }
+}
+
+/* Older browsers fallback */
+@supports not (height: 100dvh) {
+  :root { --vh: 1vh; }
+  .mx-viewport { height: calc(var(--vh) * 100); min-height: calc(var(--vh) * 100); }
+}
+
+

@@ -78,11 +78,10 @@ function SectionTitleStyles() {
          Project image overlays
          =========================== */
       .ov{ position:absolute; inset:0; pointer-events:none; border-radius:inherit; }
-      .hud-crt{ background: repeating-linear-gradient(0deg, rgba(255,255,255,.03) 0 1px, transparent 1px 3px); background-repeat:repeat; mix-blend-mode: overlay; box-shadow: inset 0 0 28px rgba(178,90,255,.16); opacity:.30; transition: opacity .2s ease, box-shadow .2s ease; }
-      .group:hover .hud-crt{ opacity:.40; box-shadow: inset 0 0 32px rgba(178,90,255,.20); }
+     
       .hud-ring{ z-index:30; box-shadow: inset 0 0 0 1px rgba(178,90,255,.32), 0 0 0 1px rgba(178,90,255,.22), 0 0 36px rgba(178,90,255,.12); transition: box-shadow .2s ease; }
       .group:hover .hud-ring{ box-shadow: inset 0 0 0 1px rgba(178,90,255,.45), 0 0 0 1px rgba(178,90,255,.28), 0 0 46px rgba(178,90,255,.16); }
-      @media (min-resolution: 2dppx){ .hud-crt{ background-size:100% 2px; } }
+ 
 
       /* Reinforce bottom edge on small screens (hairline can vanish) */
       .panel{ position: relative; }
@@ -97,6 +96,10 @@ function SectionTitleStyles() {
       @media (max-width: 639px){
         .panel{ border-color: rgba(178,90,255,.42) !important; }
       }
+
+      @media (max-width: 640px){
+  .hud-ring{ box-shadow: inset 0 0 0 1px rgba(178,90,255,.28); }
+}
     `}</style>
   );
 }
@@ -217,10 +220,6 @@ function TypeTitle({ text, duration = 700, delay = 0, className = "" }) {
   );
 }
 
-/* =====================================
-   Panels — square corners + magenta borders (like About)
-   ===================================== */
-
 const EDGE = "rgba(178,90,255,0.30)"; // panel edge / chips edge
 const DIVIDE = "rgba(178,90,255,0.25)"; // panel header divider
 const SOFT = "rgba(178,90,255,0.06)"; // soft plate fill
@@ -232,21 +231,25 @@ const slugify = (s = "") =>
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)/g, "");
 
-// Panel
 const Panel = ({ title, right, children, className = "" }) => (
   <div
     className={[
-      "bg-black/50 backdrop-blur-sm overflow-hidden flex flex-col",
+      "bg-black/50 md:backdrop-blur-sm overflow-hidden flex flex-col", // was always blurred
       "shadow-[0_0_40px_rgba(178,90,255,0.08)]",
       "border",
       "rounded-none",
       "panel",
       className,
     ].join(" ")}
-    style={{ borderColor: EDGE, minHeight: "var(--card-h, auto)" }}
+    style={{
+      borderColor: EDGE,
+      minHeight: "var(--card-h, auto)",
+      contentVisibility: "auto",
+      containIntrinsicSize: "600px 480px",
+    }}
   >
     <div
-      className="flex items-center gap-2 px-3 py-2 border-b text-xs"
+      className="flex items-center gap-2 px-3 md:px-3 py-2 border-b text-xs"
       style={{ borderBottomColor: DIVIDE, color: "rgba(178,90,255,0.90)" }}
     >
       <span
@@ -259,7 +262,7 @@ const Panel = ({ title, right, children, className = "" }) => (
       <span className="uppercase tracking-widest">{title}</span>
       <div className="ml-auto">{right}</div>
     </div>
-    <div className="p-4 md:p-5 flex-1 flex flex-col">{children}</div>
+    <div className="px-3 md:px-3 py-3 md:py-3 flex-1 flex flex-col">{children}</div>
   </div>
 );
 
@@ -272,59 +275,114 @@ const Tag = ({ children }) => (
   </span>
 );
 
+// ===============================
+// NEW: Button styled to match the Contact.jsx "Send" button exactly
+// ===============================
+const ContactStyleButton = ({
+  href,
+  onClick,
+  children,
+  label,
+  target = "_blank",
+  className = "",
+}) => {
+  const Comp = href ? "a" : "button";
+
+  const style = {
+    border: `1px solid ${EDGE}`,
+    backgroundColor: "rgba(178,90,255,0.10)",
+    color: "rgba(232,240,255,0.95)",
+    boxShadow: "0 0 20px rgba(178,90,255,.15)",
+  };
+
+  const onEnter = (e) =>
+    (e.currentTarget.style.backgroundColor = "rgba(178,90,255,0.18)");
+  const onLeave = (e) =>
+    (e.currentTarget.style.backgroundColor = "rgba(178,90,255,0.10)");
+
+  return (
+    <Comp
+      href={href}
+      onClick={onClick}
+      aria-label={label}
+      target={target}
+      rel={target === "_blank" ? "noopener noreferrer" : undefined}
+      style={style}
+      onMouseEnter={onEnter}
+      onMouseLeave={onLeave}
+      className={`inline-flex items-center gap-2 rounded-none px-5 py-2.5 font-mono font-bold focus:outline-none focus:ring-2 ${className}`}
+    >
+      {children}
+    </Comp>
+  );
+};
+
+// Stronger, neon-y primary/ghost buttons used for Repo/Demo
 const IconButton = ({
   href,
   onClick,
   children,
   label,
-  disabled,
   target = "_blank",
+  className = "",
 }) => {
-  const baseClass =
-    "inline-flex items-center gap-2 px-2.5 py-1.5 rounded-none text-xs md:text-sm font-mono focus:outline-none focus:ring-2 cursor-pointer select-none";
-  const baseStyle = {
+  const Comp = href ? "a" : "button";
+
+  const style = {
     border: `1px solid ${EDGE}`,
-    backgroundColor: SOFT,
-    color: NEARWHITE,
-    WebkitTapHighlightColor: "transparent",
+    backgroundColor: "rgba(178,90,255,0.10)",
+    color: "rgba(232,240,255,0.95)",
+    boxShadow: "0 0 20px rgba(178,90,255,.15)",
   };
 
-  const hoverHandlers = {
-    onMouseEnter: (e) =>
-      (e.currentTarget.style.backgroundColor = "rgba(178,90,255,0.12)"),
-    onMouseLeave: (e) => (e.currentTarget.style.backgroundColor = SOFT),
-  };
+  const onEnter = (e) =>
+    (e.currentTarget.style.backgroundColor = "rgba(178,90,255,0.18)");
+  const onLeave = (e) =>
+    (e.currentTarget.style.backgroundColor = "rgba(178,90,255,0.10)");
 
-  if (href && !disabled) {
-    return (
-      <a
-        {...hoverHandlers}
-        href={href}
-        target={target}
-        rel="noopener noreferrer"
-        aria-label={label}
-        role="button"
-        className={baseClass}
-        style={baseStyle}
-      >
-        {children}
-      </a>
-    );
-  }
-
-  // Fallback: real <button>
   return (
-    <button
-      {...hoverHandlers}
-      type="button"
-      onClick={disabled ? undefined : onClick}
-      disabled={disabled}
+    <Comp
+      href={href}
+      onClick={onClick}
       aria-label={label}
-      className={baseClass + (disabled ? " opacity-40" : "")}
-      style={baseStyle}
+      target={target}
+      rel={target === "_blank" ? "noopener noreferrer" : undefined}
+      style={style}
+      onMouseEnter={onEnter}
+      onMouseLeave={onLeave}
+      className={`inline-flex items-center gap-2 rounded-none px-5 py-2.5 font-mono font-bold focus:outline-none focus:ring-2 ${className}`}
     >
       {children}
-    </button>
+    </Comp>
+  );
+};
+
+const SmartImg = ({ src, alt, priority = false, className = "" }) => {
+  const [loaded, setLoaded] = React.useState(false);
+  return (
+    <div
+      className={`card-img group relative w-full aspect-[16/9] overflow-hidden shrink-0 rounded-none ${
+        loaded ? "loaded" : ""
+      }`}
+      style={{ border: `1px solid ${EDGE}`, isolation: "isolate" }}
+    >
+      <img
+        src={src}
+        alt={alt}
+        width={1280}
+        height={720}
+        sizes="(min-width:1440px) 31vw, (min-width:850px) 48vw, 100vw"
+        loading={priority ? "eager" : "lazy"}
+        fetchpriority={priority ? "high" : "auto"}
+        decoding="async"
+        className={`card-img w-full h-full object-cover relative z-0 ${className}`}
+        draggable="false"
+        onLoad={() => setLoaded(true)}
+      />
+      <span className="ov hud-tint-project" aria-hidden="true" />
+      <span className="ov" aria-hidden="true" />
+      <span className="ov hud-ring" aria-hidden="true" />
+    </div>
   );
 };
 
@@ -336,10 +394,14 @@ const ProjectCard = ({
   image,
   source_code_link,
   live_demo,
+  page,
 }) => {
   const slug = slugify(name);
   return (
     <motion.div
+      initial="hidden"
+      whileInView="show"
+      viewport={{ once: true, amount: 0.2 }}
       variants={fadeIn("up", "spring", index * 0.12, 0.6)}
       className="h-full"
     >
@@ -359,31 +421,15 @@ const ProjectCard = ({
             )}
             {live_demo && (
               <IconButton href={live_demo} label={`Open live demo for ${name}`}>
-                ⏵ Demo
+                ⏵ Live
               </IconButton>
             )}
           </div>
         }
       >
-        {image && (
-          <div
-            className="card-img group relative w-full aspect-[16/9] overflow-hidden shrink-0 rounded-none"
-            style={{ border: `1px solid ${EDGE}`, isolation: "isolate" }}
-          >
-            <img
-              src={image}
-              alt={name}
-              className="card-img w-full h-full object-cover relative z-0"
-              loading="lazy"
-              draggable="false"
-            />
-            <span className="ov hud-tint-project" aria-hidden="true" />
-            <span className="ov hud-crt" aria-hidden="true" />
-            <span className="ov hud-ring" aria-hidden="true" />
-          </div>
-        )}
+        {image && <SmartImg src={image} alt={name} priority={index < 2} />}
 
-        <div className="mt-4">
+        <div className="mt-5">
           <h3 className="font-mono text-[rgba(232,240,255,0.98)] text-[18px] md:text-[20px] font-semibold">
             {name}
           </h3>
@@ -392,10 +438,23 @@ const ProjectCard = ({
               {description}
             </p>
           )}
+
+          {page && (
+            <div className="mt-5">
+              <ContactStyleButton
+                href={page}
+                target="_self"
+                label={`View ${name} page`}
+                className="w-full justify-center"
+              >
+                View
+              </ContactStyleButton>
+            </div>
+          )}
         </div>
 
         {!!tags.length && (
-          <div className="mt-auto pt-4 flex flex-wrap gap-2">
+          <div className="mt-auto pt-5 flex flex-wrap gap-2">
             {tags.map((tag) => (
               <Tag key={`${name}-${tag.name}`}>{tag.name}</Tag>
             ))}
@@ -464,6 +523,9 @@ const Works = () => {
 
       <div className="w-full flex">
         <motion.p
+          initial="hidden"
+          whileInView="show"
+          viewport={{ once: true, amount: 0.3 }}
           variants={fadeIn("", "", 0.1, 1)}
           className="mt-3 font-mono text-[rgba(232,240,255,0.88)] text-[15px] max-w-3xl leading-7"
         >
@@ -485,3 +547,5 @@ const Works = () => {
 };
 
 export default SectionWrapper(Works, "work");
+
+

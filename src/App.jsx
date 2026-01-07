@@ -1,92 +1,56 @@
+import React, { useRef } from "react";
 import { BrowserRouter } from "react-router-dom";
-import React, { useState, useEffect } from "react";
+import { Canvas } from "@react-three/fiber";
+import { View } from "@react-three/drei";
 import {
   About,
   Contact,
   Experience,
   Navbar,
-  Tech,
   Works,
   Hero,
 } from "./components";
-import RootMatrixBG from "./components/canvas/RootMatrixBG";
 
 const App = () => {
-  const [entered, setEntered] = useState(true); // inside the site content
-  const [reenter3D, setReenter3D] = useState(false); // trigger reverse flight
-
-  useEffect(() => {
-    const prefersReduced = window.matchMedia(
-      "(prefers-reduced-motion: reduce)"
-    ).matches;
-    const smallScreen = window.matchMedia("(max-width: 768px)").matches;
-    if (prefersReduced || smallScreen) setEntered(true); // auto-skip heavy 3D
-  }, []);
-
-  const handleBackToDesk = () => {
-    // show the 3D overlay and play reverse animation once
-    setReenter3D(true);
-    setEntered(false);
-    // reset the flag on the next tick so future clicks work again
-    setTimeout(() => setReenter3D(false), 0);
-  };
+  const mainRef = useRef(null);
 
   return (
     <BrowserRouter>
-      {/* 1) Global matrix behind EVERYTHING */}
-      {entered && <RootMatrixBG />}
+      {/* 1. The Main Scroll Container 
+        We ref this so the 3D Canvas knows where "scrolling" happens.
+      */}
+      <div
+        ref={mainRef}
+        className="relative w-full h-screen overflow-y-auto overflow-x-hidden bg-paper text-primary selection:bg-bento-pink selection:text-primary"
+      >
+        <Navbar />
 
-      {/* 2) All site content above it */}
-      <div className="relative z-10">
-        {/* Hero overlay lives here and signals when we’re "inside" */}
-        <div
-          className={`${entered ? "bg-transparent" : "bg-black"} ${
-            entered ? "min-h-screen" : "h-screen"
-          } ${entered ? "" : "overflow-hidden"}`}
+        {/* 2. The Global 3D Layer 
+           This sits *behind* the HTML but *listens* to the HTML container.
+           pointer-events-none ensures clicks pass through to buttons, 
+           but eventSource={mainRef} allows 3D objects to still react to hover!
+        */}
+        <Canvas
+          className="!fixed inset-0 top-0 left-0 z-0 pointer-events-none"
+          eventSource={mainRef}
+          style={{ position: "fixed" }} // Safety style
         >
-          <Navbar />
-          <Hero reenter3D={reenter3D} onEntered={() => setEntered(true)} />
+          {/* This renders all the <View> contents from other components */}
+          <View.Port />
+        </Canvas>
+
+        {/* 3. The Content Layer (HTML) */}
+        <div className="relative z-10">
+          <Hero />
+          
+          {/* Placeholder sections for now */}
+          <div className="bg-paper">
+            <About />
+            <Works />
+            <Experience />
+            <Contact />
+          </div>
         </div>
-
-        {/* Render the real site sections AFTER the intro */}
-        {entered && (
-          <>
-            {/* Floating Back to desk button */}
-            {/*           <button
-              onClick={handleBackToDesk}
-              className="fixed bottom-6 right-6 z-40 rounded-2xl bg-white/10 hover:bg-white/20 backdrop-blur px-4 py-2 text-white text-sm"
-            >
-              Back to desk
-            </button> */}
-
-            {/* 3) Make sure sections don’t create opaque layers */}
-            <section className="relative z-10 w-full min-h-screen">
-              {/* <About id="about" data-mx-section data-mx-speed="0.85" data-mx-density="0.95" data-mx-opacity="0.12" className="relative" /> */}
-              <Works />
-            </section>
-
-            <section className="relative z-10">
-              <About
-                id="about"
-                data-mx-section
-                data-mx-speed="0.85"
-                data-mx-density="0.95"
-                data-mx-opacity="0.12"
-                className="relative"
-              />
-            </section>
-
-            <section className="relative z-10">{/* <Tech /> */}</section>
-
-            <section className="relative z-10">
-              <Experience />
-            </section>
-
-            <section className="relative z-10">
-              <Contact />
-            </section>
-          </>
-        )}
       </div>
     </BrowserRouter>
   );

@@ -7,6 +7,7 @@ import Experience from "./Experience";
 import Works from "./Works";
 import Contact from "./Contact";
 import CanvasLoader from "./Loader";
+import AliKetola from "./ali-ketola/AliKetola";
 
 
 export {
@@ -19,5 +20,6 @@ export {
   Contact,
   CanvasLoader,
   BallCanvas,
-  ComputersCanvas
+  ComputersCanvas,
+  AliKetola,
 };

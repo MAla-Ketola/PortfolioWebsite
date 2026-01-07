@@ -25,6 +25,16 @@ import stepnbloom from "./stepnbloom.png";
 import happytracker from "./happytracker.png";
 import eneme from "./eneme.png";
 import portfolio from "./portfolio.png";
+import rootodyssey from "./rootodyssey.png";
+import oldschool from "./oldschool.png";
+import platformer from "./platformer.png";
+
+import AKproblem1 from "./ali-ketola/AKproblem1.png";
+import AKproblem2 from "./ali-ketola/AKproblem2.png";
+import AKproblem3 from "./ali-ketola/AKproblem3.png";
+import AKproblem4 from "./ali-ketola/AKproblem4.png";
+import AKproblem5 from "./ali-ketola/AKproblem5.png";
+import AKproblem6 from "./ali-ketola/AKproblem6.png";
 
 export {
   github,
@@ -50,5 +60,14 @@ export {
   eneme,
   uwe,
   coursera,
-  portfolio
+  portfolio,
+  rootodyssey,
+  oldschool,
+  platformer,
+  AKproblem1,
+  AKproblem2,
+  AKproblem3,
+  AKproblem4,
+  AKproblem5,
+  AKproblem6,
 };

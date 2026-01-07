@@ -1,808 +1,527 @@
-// UI accent: #FF3DDE   •  Secondary magenta: #B25AFF  •  Neutrals unchanged
-import React, { useState } from "react";
-// import MysteriousDeskCanvas from "./canvas/MysteriousDesk"; // only referenced in commented Phase A blocks
-import { styles } from "../styles";
+import React, {
+  useRef,
+  Suspense,
+  useMemo,
+  useState,
+  useId,
+  useEffect,
+} from "react";
+import { Canvas, useLoader, useFrame, useThree } from "@react-three/fiber";
+import {
+  Float,
+  Sparkles,
+  PerspectiveCamera,
+  Resize,
+  Center,
+  ContactShadows,
+} from "@react-three/drei";
+import { EffectComposer, Bloom } from "@react-three/postprocessing";
+import SplineLoader from "@splinetool/loader";
+import * as THREE from "three";
+import CanvasLoader from "./Loader";
 
-/* === Effect timings (ms) — used by the commented Phase A sequence ===
-const BARS_DURATION_MS = 600;
-const STATIC_DURATION_MS = 600;
-const FLASH_DURATION_MS = 180; // quick CRT pop
-const SETTLE_DURATION_MS = 500; // subtle scanline/vignette settle
-const ABERR_DURATION_MS = 320; // subtle RGB split duration
-*/
+/**
+ * Helper: replace all Spline materials with safe MeshStandardMaterial
+ * (prevents Spline node-material shader issues)
+ */
+function styleSplineObject(spline) {
+  spline.traverse((child) => {
+    if (child?.isObject3D) child.raycast = () => null;
 
-// --- Tiny “typewriter” block used in the hero panel ---
-function BootType({ lines, speed = 22 }) {
-  const [text, setText] = React.useState("");
-  React.useEffect(() => {
-    let i = 0;
-    const joined = lines.join("\n");
-    const id = setInterval(() => {
-      setText(joined.slice(0, i++));
-      if (i > joined.length) clearInterval(id);
-    }, speed);
-    return () => clearInterval(id);
-  }, [lines, speed]);
-  return (
-    <pre
-      className="p-3 md:p-4 text-[12px] md:text-sm leading-relaxed font-mono whitespace-pre-wrap"
-      style={{ color: "#E8F0FF" }}
-    >
-      {text}
-      <span
-        className="inline-block w-2 h-4 align-[-2px] animate-pulse ml-1"
-        style={{ backgroundColor: "#E8F0FF" }}
-      />
-    </pre>
-  );
+    if (child?.isMesh) {
+      child.raycast = THREE.Mesh.prototype.raycast;
+
+      const name = (child.name || "").toLowerCase();
+      const isCenter = name.includes("sphere") || name.includes("center");
+
+      child.material = new THREE.MeshStandardMaterial({
+        color: isCenter ? "#ffeebb" : "#ffc4d6",
+        roughness: 0.12,
+        metalness: 0.1,
+        emissive: isCenter ? "#ffaa00" : "#ff88aa",
+        emissiveIntensity: isCenter ? 0.5 : 0.2,
+      });
+    }
+  });
+
+  return spline;
 }
 
-function ScrollCue({
-  target = "#about",
-  alignTo = "#hero-divider",
-  fadeMs = 260,
-  mode = "fixed", // "fixed" (desktop) | "inline" (mobile, under titles)
-}) {
-  const [mounted, setMounted] = React.useState(false);
-  const [show, setShow] = React.useState(false);
-  const [leftPx, setLeftPx] = React.useState(0);
-  const hideT = React.useRef(null);
+/**
+ * Find nearest scroll container. If none, returns window.
+ * Works for full-screen layouts that scroll inside a wrapper.
+ */
+function getScrollParent(node) {
+  if (!node) return window;
+  let parent = node.parentElement;
 
-  const [isMobile, setIsMobile] = React.useState(
-    () =>
-      typeof window !== "undefined" &&
-      window.matchMedia("(max-width: 767px)").matches
+  while (parent) {
+    const style = window.getComputedStyle(parent);
+    const overflowY = style.overflowY;
+    const isScrollable =
+      (overflowY === "auto" || overflowY === "scroll" || overflowY === "overlay") &&
+      parent.scrollHeight > parent.clientHeight;
+
+    if (isScrollable) return parent;
+    parent = parent.parentElement;
+  }
+
+  return window;
+}
+
+/**
+ * --- MAIN 3D FLOWER (Hero Tile) ---
+ */
+const HeroScene = ({ boostBloom = 0 }) => {
+  const { gl } = useThree();
+
+  useEffect(() => {
+    gl.toneMapping = THREE.ACESFilmicToneMapping;
+    gl.toneMappingExposure = 1.2;
+  }, [gl]);
+
+  const rawSpline = useLoader(
+    SplineLoader,
+    "https://prod.spline.design/Rec6PcROBqV3gDTB/scene.splinecode"
   );
-  React.useEffect(() => {
-    const mql = window.matchMedia("(max-width: 767px)");
-    const onChange = (e) => setIsMobile(e.matches);
-    mql.addEventListener("change", onChange);
-    return () => mql.removeEventListener("change", onChange);
-  }, []);
+  const spline = useMemo(() => styleSplineObject(rawSpline), [rawSpline]);
 
-  const resolvedMode = mode === "auto" ? (isMobile ? "inline" : "fixed") : mode;
+  const spinRef = useRef();
+  const [hovered, setHovered] = useState(false);
+  const rotationSpeed = useRef(0);
 
-  // Only compute left alignment when we're in fixed mode
-  React.useEffect(() => {
-    if (resolvedMode !== "fixed") return;
+  useFrame((_, delta) => {
+    if (!spinRef.current) return;
 
-    const updateLeft = () => {
-      const el = document.querySelector(alignTo);
-      if (!el) {
-        setLeftPx(window.innerWidth / 2);
-        return;
-      }
-      const r = el.getBoundingClientRect();
-      setLeftPx(r.left + r.width / 2);
-    };
-    updateLeft();
-    window.addEventListener("resize", updateLeft, { passive: true });
-    let ro;
-    const el = document.querySelector(alignTo);
-    if (el && "ResizeObserver" in window) {
-      ro = new ResizeObserver(updateLeft);
-      ro.observe(el);
-    }
-    return () => {
-      window.removeEventListener("resize", updateLeft);
-      ro?.disconnect();
-    };
-  }, [alignTo, resolvedMode]);
+    const targetSpeed = hovered ? 3 : 0;
+    rotationSpeed.current += (targetSpeed - rotationSpeed.current) * 4 * delta;
 
-  const softShow = React.useCallback(() => {
-    clearTimeout(hideT.current);
-    setMounted(true);
-    requestAnimationFrame(() => setShow(true));
-  }, []);
-  const softHide = React.useCallback(() => {
-    setShow(false);
-    clearTimeout(hideT.current);
-    hideT.current = setTimeout(() => setMounted(false), fadeMs);
-  }, [fadeMs]);
+    spinRef.current.rotation.z -= rotationSpeed.current * delta;
+    spinRef.current.rotation.z -= (hovered ? 0 : 0.18) * delta;
+  });
 
-  React.useEffect(() => {
-    const top = document.getElementById("hero-top-sentinel");
-    const next = document.querySelector(target);
-    if (!top) return;
-
-    const topIO = new IntersectionObserver(
-      ([e]) => {
-        e.isIntersecting ? softShow() : softHide();
-      },
-      { threshold: 0.01 }
-    );
-    topIO.observe(top);
-
-    let nextIO;
-    if (next) {
-      nextIO = new IntersectionObserver(
-        ([e]) => {
-          if (e.isIntersecting) softHide();
-        },
-        { threshold: 0.01 }
-      );
-      nextIO.observe(next);
-    }
-
-    const onScroll = () => {
-      if (window.scrollY > 0) softHide();
-    };
-    window.addEventListener("scroll", onScroll, { passive: true });
-
-    return () => {
-      topIO.disconnect();
-      nextIO?.disconnect();
-      window.removeEventListener("scroll", onScroll);
-      clearTimeout(hideT.current);
-    };
-  }, [target, softShow, softHide]);
-
-  if (!mounted) return null;
+  const bloomIntensity =
+    0.55 + (hovered ? 0.18 : 0) + Math.min(0.35, boostBloom);
 
   return (
     <>
+      <PerspectiveCamera makeDefault position={[0, 0, 10]} fov={40} />
+      <ambientLight intensity={0.85} color="#ffe0f0" />
+      <directionalLight position={[5, 10, 5]} intensity={2.5} color="#fff0f5" />
+      <spotLight
+        position={[-5, 5, -5]}
+        intensity={4}
+        color="#ffffff"
+        angle={0.5}
+        penumbra={1}
+      />
+
+      <Float
+        speed={2}
+        rotationIntensity={0.55}
+        floatIntensity={1}
+        floatingRange={[-0.1, 0.1]}
+      >
+        <group
+          ref={spinRef}
+          onPointerOver={(e) => {
+            e.stopPropagation();
+            setHovered(true);
+          }}
+          onPointerOut={(e) => {
+            e.stopPropagation();
+            setHovered(false);
+          }}
+        >
+          <Resize scale={4.9}>
+            <Center>
+              <primitive object={spline} />
+            </Center>
+          </Resize>
+        </group>
+      </Float>
+
+      <ContactShadows
+        position={[0, -3.35, 0]}
+        opacity={0.16}
+        scale={9}
+        blur={2}
+        far={4}
+        color="#2b2b2b"
+      />
+
+      <EffectComposer disableNormalPass>
+        <Bloom
+          luminanceThreshold={0.82}
+          mipmapBlur
+          intensity={bloomIntensity}
+          radius={0.35}
+        />
+      </EffectComposer>
+
+      <Sparkles
+        count={26}
+        scale={10}
+        size={2}
+        speed={0.35}
+        opacity={0.45 + Math.min(0.25, boostBloom)}
+        color="#ffffff"
+      />
+    </>
+  );
+};
+
+/**
+ * --- MINI 3D FLOWER (Scroll Indicator) ---
+ * Load separately using a cache-busting query
+ */
+const MiniFlowerScene = ({ hovered = false }) => {
+  const rawSpline = useLoader(
+    SplineLoader,
+    "https://prod.spline.design/Rec6PcROBqV3gDTB/scene.splinecode?mini=1"
+  );
+  const spline = useMemo(() => styleSplineObject(rawSpline), [rawSpline]);
+
+  const ref = useRef();
+
+  useFrame((_, delta) => {
+    if (!ref.current) return;
+    ref.current.rotation.z -= (hovered ? 0.9 : 0.45) * delta;
+  });
+
+  return (
+    <>
+      <PerspectiveCamera makeDefault position={[0, 0, 9]} fov={42} />
+      <ambientLight intensity={0.55} color="#fff3fb" />
+      <directionalLight position={[4, 8, 6]} intensity={1.8} color="#ffffff" />
+
+      <Float
+        speed={hovered ? 2.6 : 2.0}
+        rotationIntensity={0.35}
+        floatIntensity={0.8}
+        floatingRange={[-0.08, 0.08]}
+      >
+        <group ref={ref}>
+          <Resize scale={6}>
+            <Center>
+              <primitive object={spline} />
+            </Center>
+          </Resize>
+        </group>
+      </Float>
+    </>
+  );
+};
+
+const Tile = ({ className = "", style = {}, children }) => (
+  <div
+    className={[
+      "relative overflow-hidden rounded-[32px] border border-black/5",
+      "shadow-[0_22px_80px_rgba(131,24,67,0.16)]",
+      "transition-transform duration-300 hover:-translate-y-[2px]",
+      className,
+    ].join(" ")}
+    style={style}
+  >
+    <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/40 via-white/10 to-transparent" />
+    {children}
+  </div>
+);
+
+const ScrollFlowerIndicator = ({ onClick }) => {
+  const pathId = useId().replace(/:/g, "");
+  const [hovered, setHovered] = useState(false);
+
+  return (
+    <button
+      type="button"
+      aria-label="Scroll down"
+      onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      onFocus={() => setHovered(true)}
+      onBlur={() => setHovered(false)}
+      className="group relative h-28 w-28 md:h-32 md:w-32 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-[#831843]/35"
+    >
       <style>{`
-        @keyframes cueFloat {
-          0%,100% { transform: translateY(0); opacity:.75 }
-          50%     { transform: translateY(-5px); opacity:1 }
+        @media (prefers-reduced-motion: no-preference) {
+          .scrollRing { animation: spinRing 10s linear infinite; transform-origin: 50% 50%; }
+          .group:hover .scrollRing { animation-duration: 6s; }
+          .miniFloat { animation: miniBob 1.8s ease-in-out infinite; }
         }
-        @media (prefers-reduced-motion: reduce) { * { animation: none !important } }
+        @keyframes spinRing { to { transform: rotate(360deg); } }
+        @keyframes miniBob { 0%,100% { transform: translateY(0px); } 50% { transform: translateY(-3px); } }
       `}</style>
 
-      {resolvedMode === "fixed" ? (
-        // Desktop (md+) — fixed near bottom, centered to #hero-divider
-        <a
-          href={target}
-          onClick={() => softHide()}
-          aria-label="Scroll to next section"
-          className="hidden xl:block fixed bottom-6 z-50 pointer-events-auto select-none transition-opacity"
-          style={{
-            left: `${leftPx}px`,
-            transform: "translateX(-50%)",
-            opacity: show ? 1 : 0,
-            transition: `opacity ${fadeMs}ms ease`,
-          }}
-        >
-          <span
-            className="font-mono text-[12px] sm:text-[16px] uppercase tracking-widest"
-            style={{
-              color: "#B25AFF",
-              textShadow: "0 0 10px rgba(255,61,222,.55)",
-              animation: "cueFloat 2.2s ease-in-out infinite",
-              display: "inline-block",
-            }}
-          >
-            [ scroll ]
-          </span>
-        </a>
-      ) : (
-        // Mobile — inline block below titles, centered
-        <a
-          href={target}
-          onClick={() => softHide()}
-          aria-label="Scroll to next section"
-          className="block md:hidden mx-auto mt-4 pointer-events-auto select-none transition-opacity text-center"
-          style={{
-            opacity: show ? 1 : 0,
-            transition: `opacity ${fadeMs}ms ease`,
-          }}
-        >
-          <span
-            className="font-mono text-[12px] uppercase tracking-widest inline-block"
-            style={{
-              color: "#B25AFF",
-              textShadow: "0 0 10px rgba(255,61,222,.55)",
-              animation: "cueFloat 2.2s ease-in-out infinite",
-            }}
-          >
-            [ scroll ]
-          </span>
-        </a>
-      )}
-    </>
-  );
-}
-
-const GLYPHS = "01<>{}/\\|=+*#@$%&?♡";
-
-const ScrambleText = React.forwardRef(function ScrambleText(
-  { text, duration = 900, delay = 0 },
-  ref
-) {
-  const spanRef = React.useRef(null);
-  const [out, setOut] = React.useState(() =>
-    text
-      .split("")
-      .map(() => GLYPHS[(Math.random() * GLYPHS.length) | 0])
-      .join("")
-  );
-  const raf = React.useRef(null);
-  const playing = React.useRef(false);
-  const lastInView = React.useRef(false);
-  const lastPlayAt = React.useRef(0);
-
-  const play = React.useCallback(() => {
-    const now = performance.now();
-    if (now - lastPlayAt.current < 200 || playing.current) return;
-    lastPlayAt.current = now;
-
-    const reduceMotion =
-      typeof window !== "undefined" &&
-      window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
-
-    if (reduceMotion) {
-      setOut(text);
-      return;
-    }
-
-    playing.current = true;
-    setOut(
-      text
-        .split("")
-        .map(() => GLYPHS[(Math.random() * GLYPHS.length) | 0])
-        .join("")
-    );
-
-    let startT;
-    function tick(t) {
-      if (!startT) startT = t;
-      const p = Math.min(1, (t - startT) / duration);
-      const reveal = Math.floor(p * text.length);
-      const next = text
-        .split("")
-        .map((ch, i) =>
-          i < reveal ? ch : GLYPHS[(Math.random() * GLYPHS.length) | 0]
-        )
-        .join("");
-      setOut(next);
-      if (p < 1) raf.current = requestAnimationFrame(tick);
-      else playing.current = false;
-    }
-    const id = setTimeout(
-      () => (raf.current = requestAnimationFrame(tick)),
-      delay
-    );
-    return () => clearTimeout(id);
-  }, [text, duration, delay]);
-
-  React.useImperativeHandle(ref, () => ({ play }), [play]);
-
-  React.useEffect(() => {
-    const el = spanRef.current;
-    if (!el) return;
-    const io = new IntersectionObserver(
-      ([entry]) => {
-        const inView = entry.isIntersecting;
-        if (inView && !lastInView.current) play();
-        lastInView.current = inView;
-      },
-      { root: null, threshold: 0.2, rootMargin: "-10% 0px -10% 0px" }
-    );
-    io.observe(el);
-    return () => {
-      io.disconnect();
-      if (raf.current) cancelAnimationFrame(raf.current);
-    };
-  }, [play]);
-
-  return (
-    <span ref={spanRef} aria-label={text}>
-      {out}
-    </span>
-  );
-});
-
-function HackerTitleStyles() {
-  return (
-    <style>{`
-      .hud-title{
-        /* base = UI accent #FF3DDE */
-         --hud-r:232; --hud-g:240; --hud-b:255;
-
-        position:relative; display:inline-block;
-        line-height:.92; letter-spacing:-0.01em;
-
-        background:
-         linear-gradient(180deg, rgba(var(--hud-r),var(--hud-g),var(--hud-b),0.95), rgba(var(--hud-r),var(--hud-g),var(--hud-b),0.75)),
-          repeating-linear-gradient(0deg, rgba(255,255,255,.08) 0 1px, rgba(0,0,0,0) 1px 3px);
-        -webkit-background-clip:text; background-clip:text; color:transparent;
-        -webkit-text-stroke: 1px rgba(var(--hud-r),var(--hud-g),var(--hud-b),0.55);
-        text-shadow:
-          0 0 1px rgba(232,240,255,.60),
-          0 0 12px rgba(178,90,255,.20),
-          0 0 28px rgba(178,90,255,.08);
-        filter: drop-shadow(0 0 12px rgba(var(--hud-r),var(--hud-g),var(--hud-b),.18));
-        transition: background .25s ease, text-shadow .25s ease, -webkit-text-stroke-color .25s ease, filter .25s ease;
-      }
-
-      /* Hover = secondary magenta #B25AFF */
-      .hud-title:hover{
-        --hud-r:178; --hud-g:90; --hud-b:255;
-
-        text-shadow:
-          1px 0 rgba(255,0,80,.18),
-          -1px 0 rgba(0,180,255,.18),
-          0 0 18px rgba(var(--hud-r),var(--hud-g),var(--hud-b),.35),
-          0 0 3px  rgba(var(--hud-r),var(--hud-g),var(--hud-b),.9);
-      }
-
-      @media (prefers-reduced-motion: reduce){ .hud-title{ transition:none } }
-    `}</style>
-  );
-}
-
-function TypeSubtitle({ start, speed = 28, delay = 150, className = "" }) {
-  // Define the chunks so "Web" stays magenta while typing
-  const segments = React.useMemo(
-    () => [
-      { text: "Software Developer — ", style: {} },
-      { text: "Web", style: { color: "#B25AFF" } },
-      { text: " · Games · UX", style: {} },
-    ],
-    []
-  );
-
-  // Precompute totals/offsets once
-  const totalText = React.useMemo(
-    () => segments.map((s) => s.text).join(""),
-    [segments]
-  );
-  const offsets = React.useMemo(() => {
-    const out = [];
-    let acc = 0;
-    for (const s of segments) {
-      out.push(acc);
-      acc += s.text.length;
-    }
-    return out;
-  }, [segments]);
-
-  const [i, setI] = React.useState(0);
-  const [done, setDone] = React.useState(false);
-
-  // Reset when start turns off (so it can replay cleanly)
-  React.useEffect(() => {
-    if (!start) {
-      setI(0);
-      setDone(false);
-    }
-  }, [start]);
-
-  React.useEffect(() => {
-    if (!start) return;
-
-    const reduce =
-      typeof window !== "undefined" &&
-      window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
-
-    if (reduce) {
-      setI(totalText.length);
-      setDone(true);
-      return;
-    }
-
-    let id;
-    const begin = () => {
-      id = setInterval(() => {
-        setI((prev) => {
-          if (prev >= totalText.length) {
-            clearInterval(id);
-            setDone(true);
-            return prev;
-          }
-          return prev + 1;
-        });
-      }, speed);
-    };
-
-    const delayId = setTimeout(begin, delay);
-    return () => {
-      clearInterval(id);
-      clearTimeout(delayId);
-    };
-  }, [start, speed, delay, totalText.length]);
-
-  return (
-    <>
-      <style>{`@keyframes caretBlink{0%,49%{opacity:1}50%,100%{opacity:0}}`}</style>
-      <p className={className}>
-        {segments.map((seg, idx) => {
-          const startAt = offsets[idx];
-          const visible = Math.max(0, Math.min(i - startAt, seg.text.length));
-          return (
-            <span key={idx} style={seg.style}>
-              {seg.text.slice(0, visible)}
-            </span>
-          );
-        })}
-        <span
-          aria-hidden
-          className="caret inline-block align-[-0.1em]"
-          style={{
-            width: "0.6ch",
-            height: "1em",
-            marginLeft: "2px",
-            borderLeft: "2px solid #B25AFF",
-            animation: "caretBlink 1s steps(1,end) infinite",
-            opacity: done ? 0.6 : 1,
-          }}
-        />
-      </p>
-    </>
-  );
-}
-
-export default function Hero({ onEntered, reenter3D = false }) {
-  const [entered, setEntered] = useState(true);
-  /* const [bars, setBars] = useState(false);
-  const [staticNoise, setStaticNoise] = useState(false);
-  const [flash, setFlash] = useState(false);
-  const [settle, setSettle] = useState(false);
-  const [aberr, setAberr] = useState(false); */
-
-  const marjutRef = React.useRef(null);
-  const akaRef = React.useRef(null);
-
-  /* handle replay of name scramble on hover/focus */
-  const handleReplay = () => {
-    marjutRef.current?.play();
-    setTimeout(() => akaRef.current?.play(), 120);
-  };
-
-  /* const handleEnter = React.useCallback(() => {
-    // 3D → UI transition sequence
-    setBars(true);
-    setTimeout(() => setStaticNoise(true), BARS_DURATION_MS);
-    setTimeout(() => setFlash(true), BARS_DURATION_MS + STATIC_DURATION_MS);
-    setTimeout(
-      () => setSettle(true),
-      BARS_DURATION_MS + STATIC_DURATION_MS + FLASH_DURATION_MS
-    );
-    setTimeout(() => {
-      setAberr(true);
-      setEntered(true);
-      onEntered?.();
-    }, BARS_DURATION_MS + STATIC_DURATION_MS + FLASH_DURATION_MS + SETTLE_DURATION_MS);
-    setTimeout(() => setBars(false), BARS_DURATION_MS);
-    setTimeout(
-      () => setStaticNoise(false),
-      BARS_DURATION_MS + STATIC_DURATION_MS
-    );
-    setTimeout(
-      () => setFlash(false),
-      BARS_DURATION_MS + STATIC_DURATION_MS + FLASH_DURATION_MS
-    );
-    setTimeout(
-      () => setSettle(false),
-      BARS_DURATION_MS +
-        STATIC_DURATION_MS +
-        FLASH_DURATION_MS +
-        SETTLE_DURATION_MS
-    );
-    setTimeout(
-      () => setAberr(false),
-      BARS_DURATION_MS +
-        STATIC_DURATION_MS +
-        FLASH_DURATION_MS +
-        SETTLE_DURATION_MS +
-        ABERR_DURATION_MS
-    );
-  }, [onEntered]);
-
-  // Optional: allow re-enter to replay 3D
-  React.useEffect(() => {
-    if (reenter3D) {
-      setEntered(false);
-      setBars(false);
-      setStaticNoise(false);
-      setFlash(false);
-      setSettle(false);
-      setAberr(false);
-    }
-  }, [reenter3D]); */
-
-  return (
-    <section
-      id="hero"
-      className="relative w-full min-h=[110svh] md:min-h-[118svh] lg:min-h-[112svh] xl:min-h-[100svh]
-             pb-24 md:pb-28 lg:pb-32 xl:pb-24
-             overflow-visible md:overflow-hidden"
-      style={{ overflowX: "clip" }}
-    >
-      <span
-        id="hero-top-sentinel"
-        aria-hidden="true"
-        className="relative w-full min-h-[20svh] md:min-h-0 overflow-visible md:overflow-hidden"
-      />
-
-      {/* Phase A: 3D scene */}
-      {/*       {!entered && !bars && !staticNoise && !flash && !settle && !aberr && (
-        <div className="fixed inset-0 z-30">
-          <MysteriousDeskCanvas mode="forward" onEnterScreen={handleEnter} />
-
-          <button
-            onClick={handleEnter}
-            className="absolute bottom-10 left-1/2 -translate-x-1/2 px-4 py-2 rounded-md border border-white/15 text-[13px] tracking-wide bg-black/40 hover:bg-black/60 transition"
-          >
-            Enter
-          </button>
-        </div>
-      )} */}
-
-      {/* Step 1: horizontal bars */}
-      {/*       {bars && (
-        <>
-          <style>{`
-            @keyframes barsOn { 
-              0%{opacity:0; transform:scaleY(0.94)} 
-              12%{opacity:.85} 
-              100%{opacity:.22; transform:scaleY(1)} 
-            }
-          `}</style>
-          <div className="fixed inset-0 z-40 pointer-events-none">
-            <div
-              className="absolute inset-0"
-              style={{
-                background:
-                  "repeating-linear-gradient(0deg, rgba(255,255,255,.08) 0 2px, transparent 2px 5px)",
-                animation: `barsOn ${BARS_DURATION_MS}ms ease-out forwards`,
-                mixBlendMode: "screen",
-                opacity: 0.6,
-              }}
-            />
-          </div>
-        </>
-      )} */}
-
-      {/* Step 2: static */}
-      {/*       {staticNoise && (
-        <>
-          <style>{`
-            @keyframes staticIn { 0%{opacity:0} 100%{opacity:1} }
-          `}</style>
-          <div className="fixed inset-0 z-45 pointer-events-none">
-            <div
-              className="absolute inset-0"
-              style={{
-                background:
-                  "url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22120%22 height=%22120%22><filter id=%22n%22><feTurbulence type=%22fractalNoise%22 baseFrequency=%220.9%22 numOctaves=%222%22/></filter><rect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23n)%22 opacity=%220.16%22/></svg>')",
-                animation: `staticIn ${STATIC_DURATION_MS}ms ease-out forwards`,
-              }}
-            />
-          </div>
-        </>
-      )} */}
-
-      {/* Step 3: flash + aberration settle */}
-      {/*       {settle && (
-        <>
-          <style>{`
-            @keyframes settleVignette { 0%{opacity:1} 100%{opacity:0.35} }
-            @keyframes aberrC { 0%{filter:blur(1.2px)} 100%{filter:blur(.2px)} }
-          `}</style>
-          <div className="fixed inset-0 z-50 pointer-events-none">
-            <div
-              className="absolute inset-0"
-              style={{
-                background:
-                  "radial-gradient(circle at center, rgba(178,90,255,.25), transparent 60%)",
-                mixBlendMode: "screen",
-                animation: `settleVignette ${SETTLE_DURATION_MS}ms ease-out forwards`,
-              }}
-            />
-            <div
-              className="absolute inset-0"
-              style={{
-                background:
-                  "radial-gradient(circle at center, rgba(0,0,0,.45), transparent 60%)",
-                filter: "blur(.7px)",
-                animation: `aberrC ${ABERR_DURATION_MS}ms ease-out forwards`,
-              }}
-            />
-          </div>
-        </>
-      )} */}
-
-      {/* Step 4: CRT flash */}
-      {/*       {flash && (
-        <>
-          <style>{`
-            @keyframes flashPop { 0%{opacity:0} 15%{opacity:1} 70%{opacity:1} 100%{opacity:0} }
-            @keyframes splitWobble { 0%{transform:translate(0,0)} 25%{transform:translate(1px,-1px)} 55%{transform:translate(-1px,1px)} 100%{transform:translate(0,0)} }
-          `}</style>
-          <div className="fixed inset-0 z-50 pointer-events-none">
-            <div
-              className="absolute inset-0"
-              style={{
-                background:
-                  "radial-gradient(circle at center, rgba(255,255,255,.8), rgba(255,255,255,0) 60%)",
-                animation: `flashPop ${FLASH_DURATION_MS}ms ease-out forwards`,
-                mixBlendMode: "screen",
-              }}
-            />
-            <div
-              className="absolute inset-0"
-              style={{
-                background:
-                  "repeating-linear-gradient(0deg, rgba(255,255,255,.05) 0 2px, transparent 2px 5px)",
-                animation: `splitWobble ${FLASH_DURATION_MS}ms ease-in-out forwards`,
-                opacity: 0.5,
-              }}
-            />
-          </div>
-        </>
-      )} */}
-
-      {/* Phase B: site content */}
-      <div
-        className={`relative z-10 pointer-events-none pt-[128px] sm:pt-[140px] md:pt-[156px] xl:pt-[168px] ${
-          entered ? "opacity-100" : "opacity-0"
-        }`}
-        style={{
-          transition: "opacity 200ms ease",
-          paddingTop: "calc(env(safe-area-inset-top, 0px) + 128px)",
-          paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 0px)",
-        }}
-      >
-        {/* match Navbar container */}
-        <div className={`mx-auto max-w-7xl ${styles.paddingX} relative`}>
-          {/* center line for scroll-cue alignment */}
-          <div
-            id="hero-divider"
-            className="hidden md:block absolute inset-y-0 left-1/2 w-px pointer-events-none"
-            aria-hidden="true"
-            style={{ background: "transparent" }}
+      <svg viewBox="0 0 120 120" className="absolute inset-0 h-full w-full">
+        <defs>
+          <path
+            id={pathId}
+            d="M60,60 m-42,0 a42,42 0 1,1 84,0 a42,42 0 1,1 -84,0"
           />
+        </defs>
 
-          {/* 1 col on mobile, 2 cols on md+ */}
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-y-2 xl:gap-x-20 items-start pointer-events-auto">
-            {/* Left: terminal boot panel */}
-            <div className="w-full xl:max-w-[560px] xl:justify-self-start min-w-0">
-              <div
-                className="w-full mb-4 md:mb-5 lg:mb-6 border bg-black/50 backdrop-blur-sm overflow-hidden"
-                style={{
-                  borderColor: "rgba(178,90,255,0.60)",
-                  boxShadow:
-                    "inset 0 0 0 1px rgba(178,90,255,0.15), 0 0 20px rgba(178,90,255,0.06)",
-                }}
-              >
-                <div
-                  className="flex items-center gap-2 px-3 py-2 border-b text-xs"
-                  style={{
-                    borderBottomColor: "rgba(178, 90, 255, 0.25)",
-                    color: "rgba(178, 90, 255, 0.9)",
-                  }}
-                >
-                  <span
-                    className="w-2 h-2 rounded-full"
-                    style={{ backgroundColor: "rgba(178, 90, 255, 0.9)" }}
-                  />
-                  <span className="uppercase tracking-widest">/bin/boot</span>
-                </div>
-                <BootType
-                  lines={[
-                    "link eth0 up  —  OK",
-                    "mount /portfolio  —  OK",
-                    "start gpu: glitch-core  —  OK",
-                    "start renderer: mysterious-desk  —  OK",
-                    "hand-off to userland  —  READY",
-                    "",
-                    "$ whoami",
-                    "marjut",
-                    "",
-                    "$ cat ~/hello.txt",
-                    "Welcome inside the machine.",
-                    "",
-                    "$ _",
-                  ]}
-                />
-              </div>
-            </div>
+        <g className="scrollRing">
+          <text className="fill-[#831843] font-mono text-[9px] tracking-[0.28em] uppercase">
+            <textPath href={`#${pathId}`} startOffset="0%">
+              {"scroll down • scroll down • scroll down • "}
+            </textPath>
+          </text>
+        </g>
+      </svg>
 
-            {/* Right: name + title */}
-            <div className="self-start w-full md:justify-self-stretch min-w-0 [container-type:inline-size]">
-              {/* Glow behind title */}
-              <div
-                className="pointer-events-none absolute -z-10 right-0 top-0 h-[52vmin] w-[52vmin]
-           bg-[radial-gradient(circle_at_center,rgba(0,0,0,.28),transparent_60%)]"
-                style={{ transform: "translate(12%, -6%)" }}
-              />
-
-              <div className="w-full mt-4 xl:mt-0 mb-4">
-                <HackerTitleStyles />
-                <style>{`
-                  /* MOBILE (≤768px) */
-              @media (max-width: 768px) {
-                .hero-name { 
-                  font-size: clamp(36px, 16vw + 8px, 52px) !important; 
-                }
-                .hero-sub  { 
-                  font-size: clamp(11.5px, 2.4vw + 2px, 15.5px) !important; 
-                }
-              }
-
-              /* PRE-TABLET (769–999px) — uses container query units */
-              @media (min-width: 769px) and (max-width: 999px) {
-                .hero-name { font-size: clamp(34px, 6vw + 2px, 72px); }
-                .hero-sub  { font-size: clamp(15px, 1.2cqw + 7px, 20px) !important; }
-              }
-
-              /* JUST BEFORE XL (1000–1279px) */
-              @media (min-width: 1000px) and (max-width: 1279px) {
-                .hero-name { font-size: clamp(34px, 6vw + 2px, 72px) !important; }
-                .hero-sub  { font-size: clamp(13px, 2.2cqw + 6px, 20px) !important; }
-              }
-
-              /* XL+ (≥1280px) — two columns */
-              @media (min-width: 1280px) {
-                .hero-name { font-size: clamp(39px, 14cqw + 11px, 135px); }
-                .hero-sub  { font-size: clamp(15px, 3.2cqw + 6px, 28px); }
-              }
-
-              /* FALLBACKS for browsers without container query units */
-              @supports not (font-size: 1cqw) {
-
-                /* 769–999px fallback */
-                @media (min-width: 769px) and (max-width: 999px) {
-                  .hero-name { font-size: clamp(34px, 6vw + 2px, 72px) !important; }
-                  .hero-sub  { font-size: clamp(16px, 2vw + 4px, 20px) !important; }
-                }
-
-                /* 1000–1279px fallback */
-                @media (min-width: 1000px) and (max-width: 1279px) {
-                  .hero-name { font-size: clamp(32px, 5vw + 2px, 68px) !important; }
-                  .hero-sub  { font-size: clamp(16px, 1.6vw + 4px, 19px) !important; }
-                }
-              }
-                `}</style>
-
-                <h1
-                  className={`${styles.heroHeadText} hero-name w-full tracking-[-0.01em]
-      font-extrabold [text-wrap:balance] xl:whitespace-nowrap
-      !leading-[0.95] lg:!leading-[0.92] xl:!leading-[0.88]`}
-                  onMouseEnter={handleReplay}
-                  onFocus={handleReplay}
-                  tabIndex={0}
-                >
-                  <span className="hud-title">
-                    <span className="block">
-                      <ScrambleText ref={marjutRef} text="Hi," duration={900} />
-                    </span>
-                    <span className="block">
-                      <ScrambleText
-                        ref={akaRef}
-                        text="I'm Marjut"
-                        duration={1100}
-                        delay={180}
-                      />
-                    </span>
-                  </span>
-                </h1>
-
-                <TypeSubtitle
-                  start={entered}
-                  speed={28}
-                  delay={180}
-                  className={`${styles.heroSubText} hero-sub
-                  mt-3 text-zinc-300/90 tracking-[-0.01em]
-                  [text-wrap:balance] whitespace-normal break-words
-                  block !leading-tight`}
-                />
-              </div>
-            </div>
+      <div className="absolute inset-0 grid place-items-center">
+        <div className="miniFloat relative h-12 w-12 md:h-14 md:w-14">
+          <div className="absolute inset-0 pointer-events-none">
+            <Canvas
+              className="w-full h-full"
+              dpr={[1, 1.5]}
+              gl={{ antialias: true, alpha: true }}
+            >
+              <Suspense fallback={null}>
+                <MiniFlowerScene hovered={hovered} />
+              </Suspense>
+            </Canvas>
           </div>
         </div>
       </div>
+    </button>
+  );
+};
 
-      {/* ▼ Scroll cue */}
-      {entered && (
-        <ScrollCue
-          mode="fixed"
-          target="#work"
-          alignTo="#hero-divider"
-          fadeMs={220}
-        />
-      )}
+const Hero = () => {
+  const [bloomBoost, setBloomBoost] = useState(0);
+
+  const heroRef = useRef(null);
+  const scrollerRef = useRef(window);
+
+  // cue animation config
+  const CUE_SIZE = 128; // ~ h-32 w-32
+  const PEEK_HIDE_PX = CUE_SIZE * 0.55; // half hidden at start
+  const REVEAL_DISTANCE = 10; // px of scroll to reveal fully
+  const FADE_START_RATIO = 0.05; // start fade when 65% through hero
+  const FADE_DISTANCE = 120; // fade over px
+
+  const [cueStyle, setCueStyle] = useState({
+    y: PEEK_HIDE_PX,
+    opacity: 1,
+    interactive: true,
+  });
+
+  const triggerBurst = () => {
+    setBloomBoost(0.35);
+    window.setTimeout(() => setBloomBoost(0), 500);
+  };
+
+  // Scroll in the same scroller that actually scrolls the page
+  const scrollToId = (id) => {
+    const el = document.getElementById(id);
+    if (!el) {
+      window.location.hash = `#${id}`;
+      return;
+    }
+
+    const NAV_OFFSET = 112;
+    const scroller = scrollerRef.current || window;
+
+    if (scroller === window) {
+      const y = el.getBoundingClientRect().top + window.scrollY - NAV_OFFSET;
+      window.scrollTo({ top: y, behavior: "smooth" });
+      return;
+    }
+
+    // element scroll container case
+    const scrollerRect = scroller.getBoundingClientRect();
+    const targetRect = el.getBoundingClientRect();
+    const y =
+      scroller.scrollTop + (targetRect.top - scrollerRect.top) - NAV_OFFSET;
+
+    scroller.scrollTo({ top: y, behavior: "smooth" });
+  };
+
+  // ✅ cue reveal + fade: listen to the ACTUAL scroll container
+  useEffect(() => {
+    const el = heroRef.current;
+    if (!el) return;
+
+    const scroller = getScrollParent(el);
+    scrollerRef.current = scroller;
+
+    const listenTarget = scroller === window ? window : scroller;
+
+    let raf = 0;
+    const update = () => {
+      const rect = el.getBoundingClientRect();
+      const heroHeight = rect.height;
+
+      const inView = rect.bottom > 0 && rect.top < window.innerHeight;
+      if (!inView) {
+        setCueStyle((prev) =>
+          prev.opacity === 0
+            ? prev
+            : { y: PEEK_HIDE_PX, opacity: 0, interactive: false }
+        );
+        raf = 0;
+        return;
+      }
+
+      const localY = Math.min(Math.max(0, -rect.top), heroHeight);
+
+      // reveal (half-hidden -> full)
+      const revealT = Math.min(Math.max(localY / REVEAL_DISTANCE, 0), 1);
+      const translateY = (1 - revealT) * PEEK_HIDE_PX;
+
+      // fade near bottom of hero
+      const fadeStart = heroHeight * FADE_START_RATIO;
+      const fadeT = Math.min(
+        Math.max((localY - fadeStart) / FADE_DISTANCE, 0),
+        1
+      );
+      const opacity = 1 - fadeT;
+
+      setCueStyle({
+        y: translateY,
+        opacity,
+        interactive: opacity > 0.05,
+      });
+
+      raf = 0;
+    };
+
+    const scheduleUpdate = () => {
+      if (raf) return;
+      raf = requestAnimationFrame(update);
+    };
+
+    // initial + listeners
+    update();
+    listenTarget.addEventListener("scroll", scheduleUpdate, { passive: true });
+    window.addEventListener("resize", scheduleUpdate);
+
+    return () => {
+      listenTarget.removeEventListener("scroll", scheduleUpdate);
+      window.removeEventListener("resize", scheduleUpdate);
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, []);
+
+  return (
+    <section
+      ref={heroRef}
+      className="relative w-full h-screen bg-[#F7F3E9] pt-28 pb-8 px-4 md:px-8 overflow-hidden"
+    >
+      <div className="pointer-events-none absolute -top-28 -left-28 h-80 w-80 rounded-full bg-[#F8C8DC]/55 blur-3xl" />
+      <div className="pointer-events-none absolute -bottom-32 -right-24 h-96 w-96 rounded-full bg-[#BDE0FE]/55 blur-3xl" />
+
+      <div className="relative w-full max-w-7xl mx-auto h-full">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-full">
+          {/* TEXT TILE */}
+          <Tile
+            className="lg:col-span-6 h-full"
+            style={{ backgroundColor: "#FEF9E7" }}
+          >
+            <div className="relative h-full p-6 md:p-10 flex flex-col justify-center">
+              <div className="inline-flex items-center gap-2 rounded-full bg-white/65 px-4 py-2 border border-black/5 w-fit">
+                <span className="font-mono text-[11px] tracking-widest uppercase text-[#831843]/80">
+                  Portfolio
+                </span>
+                <span className="h-1 w-1 rounded-full bg-[#831843]/35" />
+                <span className="font-mono text-[11px] tracking-widest uppercase text-[#831843]/80">
+                  2026
+                </span>
+              </div>
+
+              <h1 className="mt-6 font-serif italic text-5xl md:text-7xl text-[#831843] leading-[0.95]">
+                Hi, I’m{" "}
+                <span className="not-italic font-sans font-black">Marjut</span>
+              </h1>
+
+              <p className="mt-5 text-[#831843]/90 font-medium text-base md:text-lg max-w-xl leading-relaxed">
+                A Creative Developer building bold, accessible, and memorable
+                digital experiences.
+              </p>
+
+              <div className="mt-6 flex flex-wrap gap-2">
+                {["React", "Tailwind", "Three.js", "UX", "UI Dev"].map((t) => (
+                  <span
+                    key={t}
+                    className="rounded-full bg-white/65 border border-black/5 px-3 py-1 text-sm text-[#831843]/80"
+                  >
+                    {t}
+                  </span>
+                ))}
+              </div>
+
+              <div className="mt-8 flex flex-wrap gap-3">
+                <a
+                  href="#contact"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    triggerBurst();
+                    scrollToId("contact");
+                  }}
+                  className="inline-flex items-center justify-center bg-[#831843] text-white font-bold px-6 py-3 rounded-full shadow-lg hover:scale-[1.03] hover:bg-[#a01d52] transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-[#831843]/40"
+                >
+                  Contact Me
+                </a>
+
+                <a
+                  href="#projects"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    triggerBurst();
+                    scrollToId("projects");
+                  }}
+                  className="inline-flex items-center justify-center border-2 border-[#831843] text-[#831843] font-bold px-6 py-3 rounded-full hover:bg-[#831843]/10 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-[#831843]/30"
+                >
+                  View Work
+                </a>
+              </div>
+            </div>
+          </Tile>
+
+          {/* FLOWER TILE */}
+          <Tile
+            className="lg:col-span-6 h-[42vh] lg:h-full"
+            style={{ backgroundColor: "#BDE0FE" }}
+          >
+            <div className="relative h-full w-full p-4 md:p-6">
+              <div className="relative h-full w-full rounded-[28px] overflow-hidden">
+                <div className="absolute inset-0">
+                  <Canvas className="w-full h-full">
+                    <Suspense fallback={<CanvasLoader />}>
+                      <HeroScene boostBloom={bloomBoost} />
+                    </Suspense>
+                  </Canvas>
+                </div>
+              </div>
+            </div>
+          </Tile>
+        </div>
+
+        {/* SCROLL CUE: half visible at first, reveals on scroll, fades out near end of hero */}
+        <div
+          className="fixed left-1/2 bottom-0 z-50 transition-[transform,opacity] duration-300"
+          style={{
+            transform: `translateX(-50%) translateY(${cueStyle.y}px)`,
+            opacity: cueStyle.opacity,
+            pointerEvents: cueStyle.interactive ? "auto" : "none",
+          }}
+        >
+          <ScrollFlowerIndicator
+            onClick={() => {
+              triggerBurst();
+              scrollToId("about");
+            }}
+          />
+        </div>
+      </div>
     </section>
   );
-}
+};
+
+export default Hero;
+
+
+
+
